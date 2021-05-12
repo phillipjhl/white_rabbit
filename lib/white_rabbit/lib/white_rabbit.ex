@@ -1,21 +1,43 @@
 defmodule WhiteRabbit do
-  @moduledoc false
+  @doc false
+  defmacro __using__(opts) do
+    quote location: :keep, bind_quoted: [opts: opts, module: __CALLER__.module] do
+      @behaviour WhiteRabbit
 
-  use Application
-  require Logger
+      @doc false
+      def child_spec(arg) do
+        default = %{
+          id: unquote(module),
+          start: {__MODULE__, :start_link, [arg]},
+          shutdown: :infinity,
+          type: :supervisor
+        }
 
-  # See http://elixir-lang.org/docs/stable/elixir/Application.html
-  # for more information on OTP Applications
-  def start(_type, _args) do
-    Confex.resolve_env!(:white_rabbit)
+        Supervisor.child_spec(default, unquote(Macro.escape(opts)))
+      end
 
-    children = [
-      # Rabbit Default Supervisor, define further children there
-      {WhiteRabbit.Supervisor, []}
-    ]
+      defoverridable child_spec: 1
+    end
+  end
 
-    opts = [strategy: :rest_for_one, name: WhiteRabbit.MainSupervisor]
+  @typedoc """
+  Returned by `start_link/2`.
+  """
+  @type on_start() :: {:ok, pid()} | :ignore | {:error, {:already_started, pid()} | term()}
 
-    Supervisor.start_link(children, opts)
+  def get_config(app) do
+    [%{}]
+  end
+
+  @callback get_config(atom()) :: [%{}]
+
+  @optional_callbacks get_config: 1
+
+  @doc """
+  Start the WhiteRabbit.
+  """
+  # @spec start_link(module(), keyword()) :: on_start()
+  def start_link(module, opts) do
+    WhiteRabbit.Hole.start_link({module, opts})
   end
 end

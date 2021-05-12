@@ -32,7 +32,9 @@ defmodule WhiteRabbit.Consumer do
   """
 
   use GenServer
-  use WhiteRabbit.Core
+  import WhiteRabbit.Core
+
+  alias WhiteRabbit.{Consumer}
 
   require Logger
 

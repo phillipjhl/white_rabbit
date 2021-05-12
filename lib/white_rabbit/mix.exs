@@ -22,8 +22,7 @@ defmodule WhiteRabbit.Mixfile do
   def application do
     # Specify extra applications you'll use from Erlang/Elixir
     [
-      extra_applications: [:lager, :logger, :amqp],
-      mod: {WhiteRabbit, []}
+      extra_applications: [:logger, :amqp]
     ]
   end
 
@@ -40,7 +39,7 @@ defmodule WhiteRabbit.Mixfile do
     [
       {:amqp, "~> 2.1"},
       {:jason, "~> 1.0"},
-      {:confex, "~> 3.3"}
+      {:telemetry, "~> 0.4.0"}
     ]
   end
 end
