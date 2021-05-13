@@ -62,7 +62,6 @@ defmodule WhiteRabbit.Consumer do
   @doc """
   Start a WhiteRabbit Consumer Genserver.
   """
-  @spec start_link(Keyword.t()) :: GenServer.start_link()
   def start_link(%Consumer{name: name} = args) do
     GenServer.start_link(__MODULE__, args, name: name)
   end

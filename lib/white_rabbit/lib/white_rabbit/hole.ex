@@ -7,22 +7,27 @@ defmodule WhiteRabbit.Hole do
   use Supervisor
   require Logger
 
-  alias WhiteRabbit.PoolSupervisor
+  alias WhiteRabbit.{PoolSupervisor, Connection}
+
+  @type hole_option :: {:name, term()} | {:children, list()} | {:connections, [Connection.t()]}
+  @type hole_args :: [hole_option()]
 
   def start_link({module, opts}) do
+    opts = opts |> Keyword.put(:name, module)
     Supervisor.start_link(__MODULE__, opts, name: module)
   end
 
   @impl true
+  @spec init(hole_args()) :: {:ok, tuple()}
   def init(arg) do
-    name = Keyword.get(arg, :name, nil)
+    name = Keyword.get(arg, :name, __MODULE__)
     additional_children = Keyword.get(arg, :children, [])
     # To Do: Create consumer and producer supervision tree
     additional_connections = Keyword.get(arg, :connections, [])
 
     connections =
       [
-        %{
+        %Connection{
           connection_name: :whiterabbit_default_connection,
           conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
           channels: [
@@ -31,9 +36,18 @@ defmodule WhiteRabbit.Hole do
             },
             %{
               name: :default_producer_channel
+            }
+          ]
+        },
+        %Connection{
+          connection_name: :whiterabbit_rpc_connection,
+          conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
+          channels: [
+            %{
+              name: :rpc_consumer_channel
             },
             %{
-              name: :default_rpc_channel
+              name: :rpc_producer_channel
             }
           ]
         }
@@ -43,7 +57,7 @@ defmodule WhiteRabbit.Hole do
       [
         # RPC Req ETS
 
-        # AMQP Channel Process Registry
+        # AMQP Channel Process Registry, channels are registered under connection_name atoms
         {Registry, [name: WhiteRabbit.ChannelRegistry, keys: :duplicate]},
 
         # WhiteRabbit connection super

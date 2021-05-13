@@ -1,6 +1,6 @@
 defmodule WhiteRabbit.PoolSupervisor do
   @moduledoc """
-  Supervisor of multiple `WhiteRabbits.ChannelsAndConnSupervisor`.
+  Supervisor of multiple `WhiteRabbit.ChannelsAndConnSupervisor`.
   """
 
   use Supervisor
@@ -18,7 +18,9 @@ defmodule WhiteRabbit.PoolSupervisor do
 
     children =
       Enum.map(connections, fn conn ->
-        {ChannelsAndConnSupervisor, conn}
+        Supervisor.child_spec({ChannelsAndConnSupervisor, conn},
+          id: "WhiteRabbit.ChannelsAndConnSupervisor:#{conn.connection_name}"
+        )
       end)
 
     Supervisor.init(children, strategy: :one_for_one)
