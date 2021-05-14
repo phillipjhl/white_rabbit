@@ -79,7 +79,7 @@ defmodule WhiteRabbit.Channel do
   @doc """
   Get backoff delay from linked agent.
   """
-  @spec get_backoff(agent()) :: non_neg_integer()
+  @spec get_backoff(Agent.agent()) :: non_neg_integer()
   def get_backoff(agent_pid) do
     Agent.get_and_update(agent_pid, fn c -> {c, c * 2} end)
   end
