@@ -1,4 +1,11 @@
 defmodule WhiteRabbit.Channel do
+  @moduledoc """
+  WhiteRabbit channel GenServer. Starts an `%AMQP.Channel{}` process with the given `WhiteRabbit.Connection` GenServer and
+  registers it to a `WhiteRabbit.ChannelRegistry` to allow other process to grab open amqp channels from the registry and use them.
+
+  Backoff on failed channel open. Tries to re-open parent connection and open channel again.
+  """
+
   use GenServer
 
   alias AMQP.{Channel}
@@ -47,7 +54,7 @@ defmodule WhiteRabbit.Channel do
 
   The retry backoff is in the form of `5000 + 1000 * current_backoff_number`
 
-  Always return a {:ok, {_, _}} tuple so the GenServer will always start.
+  Always return a `{:ok, {_, _}}` tuple so the GenServer will always start.
   """
   @spec start_amqp_channel(__MODULE__.t()) ::
           {:ok, {AMQP.Channel.t(), __MODULE__.t()}} | {:ok, {nil, __MODULE__.t()}}

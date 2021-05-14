@@ -1,7 +1,5 @@
 defmodule WhiteRabbit.Core do
   @moduledoc """
-  WhiteRabbit.Core module.
-
   Contains helper functions.
   """
 

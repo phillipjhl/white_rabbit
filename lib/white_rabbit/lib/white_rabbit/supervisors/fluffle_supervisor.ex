@@ -1,6 +1,8 @@
 defmodule WhiteRabbit.Fluffle do
   @moduledoc """
   Supervisor of multiple DynamicSupervisors that will handle starting Consumers and Producers.
+
+  FUN FACT: Did you a group of rabbits is called a fluffle? Neither did I.
   """
 
   use Supervisor

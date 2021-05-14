@@ -1,6 +1,6 @@
 defmodule WhiteRabbit.Connection do
   @moduledoc """
-  Genserver to monitor one AMQP connection
+  Genserver to open a `%AMQP.Connection{}` and monitors it to allow for :stop events and restarts from Supervisor.
   """
 
   use GenServer

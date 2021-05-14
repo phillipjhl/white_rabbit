@@ -3,6 +3,8 @@ defmodule WhiteRabbit.Hole do
   WhiteRabbit Supervisor that handles the main topology of WhiteRabbit and its children.
 
   This Supervisor tree is registered under the caller module name.
+
+  Defaults to two connections and two channels per connection. Max is 10 connections.
   """
   use Supervisor
   require Logger

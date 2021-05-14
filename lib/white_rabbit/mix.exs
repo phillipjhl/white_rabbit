@@ -12,7 +12,12 @@ defmodule WhiteRabbit.Mixfile do
       lockfile: "mix.lock",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      name: "White Rabbit",
+      docs: [
+        main: "White Rabbit",
+        extras: ["README.md"]
+      ]
     ]
   end
 
@@ -39,7 +44,8 @@ defmodule WhiteRabbit.Mixfile do
     [
       {:amqp, "~> 2.1"},
       {:jason, "~> 1.0"},
-      {:telemetry, "~> 0.4.0"}
+      {:telemetry, "~> 0.4.0"},
+      {:ex_doc, "~> 0.24", only: :dev, runtime: false}
     ]
   end
 end
