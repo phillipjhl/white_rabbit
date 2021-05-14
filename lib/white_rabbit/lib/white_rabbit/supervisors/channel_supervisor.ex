@@ -5,6 +5,8 @@ defmodule WhiteRabbit.ChannelSupervisor do
 
   use Supervisor
 
+  alias WhiteRabbit.{Channel}
+
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts)
   end
@@ -16,7 +18,8 @@ defmodule WhiteRabbit.ChannelSupervisor do
         %{
           id: channel.name,
           start:
-            {WhiteRabbit.Channel, :start_link, [%{connection: connection, name: channel.name}]}
+            {WhiteRabbit.Channel, :start_link,
+             [%Channel{connection: connection, name: channel.name}]}
         }
       end)
 

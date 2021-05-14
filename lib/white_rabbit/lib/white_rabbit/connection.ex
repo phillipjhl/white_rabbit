@@ -75,28 +75,43 @@ defmodule WhiteRabbit.Connection do
   end
 
   @impl true
-  def init(%__MODULE__{conn_opts: conn_opts}) do
-    amqp_url = Keyword.get(conn_opts, :url, nil)
-    options = Keyword.get(conn_opts, :options, nil)
+  def init(%__MODULE__{conn_opts: conn_opts} = opts) do
+    start_amqp_connection(opts)
+  end
 
-    # If there are options use that, else use url string
-    conn = if options, do: options, else: amqp_url
-
-    case Connection.open(conn) do
-      {:ok, %AMQP.Connection{pid: pid} = conn} ->
-        # put conn in state
-        Process.monitor(pid)
-        {:ok, conn}
-
-      {:error, error} ->
-        {:stop, error}
+  @impl true
+  def handle_call(:get_connection_state, {_pid, _term}, {conn, config} = state)
+      when is_nil(conn) do
+    # Retry connecting to amqp connection.
+    # If succesful, send new connection state to caller.
+    with {:ok, new_state} <- start_amqp_connection(config) do
+      {:reply, new_state, new_state}
+    else
+      _ -> {:reply, state, state}
     end
   end
 
   @impl true
-  def handle_call(:get_connection_state, {_pid, _term}, state) do
-    # Reply with current state, which is an %AMQP.Connection{}
+  def handle_call(
+        :get_connection_state,
+        {_pid, _term},
+        {%AMQP.Connection{} = active_conn, config} = state
+      ) do
+    # Reply with current state, which is {%AMQP.Connection{}, %WhiteRabbit.Connection{}}
     {:reply, state, state}
+  end
+
+  @impl true
+  def handle_info(:start_connection, {_conn, config}) do
+    # Start a connection under this process.
+    case start_amqp_connection(config) do
+      {:ok, {%AMQP.Connection{} = active_conn, config}} ->
+        {:noreply, {active_conn, config}}
+
+      _ ->
+        Process.send_after(self(), :start_connection, 5000)
+        {:noreply, {nil, config}}
+    end
   end
 
   @impl true
@@ -107,5 +122,38 @@ defmodule WhiteRabbit.Connection do
     Logger.warn(inspect(reason))
     # Trigger restart of connection GenServer from the Supervisor if AMQP connection is closed
     {:stop, :connection_down, state}
+  end
+
+  @doc """
+  Tries to start an `%AMQP.Connection{}` with the passed config.
+
+  Monitors the opened connection so the Genserver can shut itself down in the event of an unexpected close.
+  (Management API force-close, CLI close, etc.)
+
+  A {:ok, {_, _}} tuple is always returned so the Genserver will always start even if it cannot connect.
+  """
+  @spec start_amqp_connection(__MODULE__.t()) ::
+          {:ok, {AMQP.Connection.t(), __MODULE__.t()}}
+          | {:ok, {nil, __MODULE__.t()}}
+  def start_amqp_connection(%__MODULE__{conn_opts: conn_opts} = opts) do
+    amqp_url = Keyword.get(conn_opts, :url, nil)
+    options = Keyword.get(conn_opts, :options, nil)
+
+    # If there are options use that, else use url string
+    conn = if options, do: options, else: amqp_url
+
+    case Connection.open(conn) do
+      {:ok, %AMQP.Connection{pid: pid} = active_conn} ->
+        # put conn in state
+        Process.monitor(pid)
+        Logger.info("Connected amqp connection with: #{inspect(conn)}")
+
+        {:ok, {active_conn, opts}}
+
+      {:error, error} ->
+        Logger.error("Could not connect amqp connection with: #{inspect(error)}")
+
+        {:ok, {nil, opts}}
+    end
   end
 end

@@ -7,7 +7,7 @@ defmodule WhiteRabbit.Hole do
   use Supervisor
   require Logger
 
-  alias WhiteRabbit.{PoolSupervisor, Connection}
+  alias WhiteRabbit.{PoolSupervisor, Connection, Fluffle}
 
   @type hole_option :: {:name, term()} | {:children, list()} | {:connections, [Connection.t()]}
   @type hole_args :: [hole_option()]
@@ -61,9 +61,10 @@ defmodule WhiteRabbit.Hole do
         {Registry, [name: WhiteRabbit.ChannelRegistry, keys: :duplicate]},
 
         # WhiteRabbit connection super
-        {PoolSupervisor, [connections: connections]}
+        {PoolSupervisor, [connections: connections]},
 
         # WhiteRabbit consumer/producer super -> dynamic supers
+        {Fluffle, []}
       ] ++ additional_children
 
     Logger.info("Starting the WhiteRabbit.Hole")

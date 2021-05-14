@@ -8,19 +8,25 @@ defmodule WhiteRabbit.ChannelsAndConnSupervisor do
   """
   use Supervisor
 
-  alias WhiteRabbit.{ChannelSupervisor}
+  alias WhiteRabbit.{ChannelSupervisor, Connection, Channel}
+
+  defstruct connection: nil,
+            channels: []
+
+  @type t :: %__MODULE__{connection: atom(), channels: [Channel.t()]}
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts)
   end
 
   @impl true
-  def init(%{connection_name: connection_name, conn_opts: conn_opts, channels: channels}) do
-    connection = %{connection_name: connection_name, conn_opts: conn_opts}
-
+  def init(
+        %Connection{connection_name: connection_name, conn_opts: conn_opts, channels: channels} =
+          opts
+      ) do
     children = [
       # 1 WhiteRabbit.Connection
-      {WhiteRabbit.Connection, connection},
+      {WhiteRabbit.Connection, opts},
       # 1 WhiteRabbits.ChannelSupervisor
       {ChannelSupervisor, %{connection: connection_name, channels: channels}}
     ]
