@@ -98,4 +98,35 @@ defmodule WhiteRabbit.Core do
       {:ok, conn} = AMQP.Application.get_connection(:white_rabbit)
       Channel.open(conn)
   end
+
+  @spec get_channel_from_pool(connection_name :: atom()) :: {:ok, AMQP.Channel.t()}
+  def get_channel_from_pool(connection_name) when is_atom(connection_name) do
+    channels = Registry.lookup(WhiteRabbit.ChannelRegistry, connection_name)
+    IO.inspect(channels)
+    # return random channel from the pool for now
+    # {pid, channel} = Enum.random(channels)
+    {:ok, Enum.random(channels)}
+  end
+
+  def test_publish(
+        number \\ 100,
+        exchange \\ "",
+        routing_key \\ "",
+        payload \\ %{},
+        options \\ []
+      ) do
+    {:ok, {_pid, channel}} = get_channel_from_pool(:whiterabbit_default_connection)
+    exchange = "json_test_exchange"
+    routing_key = "test_json"
+    payload = Jason.encode!(%{hello: "world"})
+
+    all_options =
+      [
+        content_type: "application/json"
+      ] ++ options
+
+    for i <- 1..5000 do
+      AMQP.Basic.publish(channel, exchange, routing_key, payload, all_options)
+    end
+  end
 end

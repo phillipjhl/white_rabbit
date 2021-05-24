@@ -24,7 +24,6 @@ defmodule WhiteRabbit.Hole do
   def init(arg) do
     name = Keyword.get(arg, :name, __MODULE__)
     additional_children = Keyword.get(arg, :children, [])
-    # To Do: Create consumer and producer supervision tree
     additional_connections = Keyword.get(arg, :connections, [])
 
     connections =

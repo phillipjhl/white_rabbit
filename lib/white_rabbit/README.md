@@ -40,6 +40,10 @@ children = [
 Supervisor.start_link(children, opts)
 ```
 
+## To Generate ExDocs
+
+`mix docs`
+
 ## To Do
 
 - [ ] Runtime config from external data source

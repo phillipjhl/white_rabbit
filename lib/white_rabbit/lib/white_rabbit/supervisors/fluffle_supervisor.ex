@@ -15,10 +15,23 @@ defmodule WhiteRabbit.Fluffle do
   @impl true
   def init(opts) do
     children = [
+      # Registry for dynamically created consumers/producers
+      {Registry, keys: :unique, name: FluffleRegistry},
+
+      # DynamicSupervisor for consumers
       {DynamicSupervisor,
        [name: WhiteRabbit.Fluffle.DynamicSupervisor.Consumer, strategy: :one_for_one]},
+
+      # DynamicSupervisor for producers
       {DynamicSupervisor,
        [name: WhiteRabbit.Fluffle.DynamicSupervisor.Producer, strategy: :one_for_one]}
+      # {WhiteRabbit.Consumer,
+      #  %WhiteRabbit.Consumer{
+      #    name: :JsonConsumer,
+      #    exchange: "json_test_exchange",
+      #    queue: "json_test_queue",
+      #    processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+      #  }}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

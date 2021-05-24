@@ -84,9 +84,8 @@ defmodule WhiteRabbit.Connection do
       when is_nil(conn) do
     # Retry connecting to amqp connection.
     # If succesful, send new connection state to caller.
-    with {:ok, new_state} <- start_amqp_connection(config) do
-      {:reply, new_state, new_state}
-    else
+    case start_amqp_connection(config) do
+      {:ok, new_state} -> {:reply, new_state, new_state}
       _ -> {:reply, state, state}
     end
   end

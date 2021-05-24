@@ -5,11 +5,9 @@ defmodule WhiteRabbit.Consumer do
 
   This module should only be concerned about establishing channels and registering itself as a consumer.
 
-  Maybe even include a handle_info function that can dynamically spawn more workers on demand by a specific message payload.
+  Actual processing of incoming messages are handled externally through configerd processors. See `WhiteRabbit.Processor` behavior.
 
-  Actual processing of incoming messages should be handled externally.
-
-  Start under a supervisor:
+  ## Start under a supervisor:
 
   ```
   children = [
@@ -29,24 +27,52 @@ defmodule WhiteRabbit.Consumer do
 
   Supervisor.init(children, strategy: :one_for_one)
   ```
+
+  ## Starting under the Fluffle dynamic superviser
+
+  ```
+  DynamicSupervisor.start_child(
+    WhiteRabbit.Fluffle.DynamicSupervisor.Consumer,
+    {WhiteRabbit.Consumer, %WhiteRabbit.Consumer{
+               name: :JsonConsumer,
+               exchange: "json_test_exchange",
+               queue: "json_test_queue",
+               processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+      }
+    }
+  )
+  ```
+
+  for i <- 1..100 do
+  IO.puts(i)
+  AMQP.Basic.publish(%AMQP.Channel{conn: %AMQP.Connection{pid: #PID<0.1325.0>}, custom_consumer: {AMQP.SelectiveConsumer, #PID<0.1339.0>}, pid: #PID<0.1343.0>}, "json_test_exchange", "", Jason.encode!(%{test: "hello"}))
+  end
+
+  #### To Do:
+  Maybe even include a handle_info function that can dynamically spawn more workers on demand by a specific message payload.
+
   """
 
   use GenServer
   import WhiteRabbit.Core
 
+  alias AMQP.{Connection, Channel, Exchange, Queue, Basic}
+
   alias WhiteRabbit.{Consumer}
 
   require Logger
 
-  @enforce_keys [:name, :queue]
+  @enforce_keys [:name, :queue, :processor]
   defstruct name: __MODULE__,
             exchange: "",
             queue: "",
             error_queue: true,
-            channel_name: :white_rabbit_consumer,
-            connection_name: :white_rabbit,
+            channel_name: :default_consumer_channel,
+            connection_name: :whiterabbit_default_connection,
             exchange_type: :topic,
-            binding_keys: ["#"]
+            binding_keys: ["#"],
+            processor: nil,
+            prefetch_count: 5
 
   @type t :: %__MODULE__{
           name: __MODULE__.t(),
@@ -56,23 +82,37 @@ defmodule WhiteRabbit.Consumer do
           channel_name: String.t(),
           connection_name: Sting.t(),
           exchange_type: atom(),
-          binding_keys: [String.t()]
+          binding_keys: [String.t()],
+          processor: WhiteRabbit.Processor.Config.t(),
+          prefetch_count: integer()
         }
 
   @doc """
   Start a WhiteRabbit Consumer Genserver.
   """
-  def start_link(%Consumer{name: name} = args) do
+  def start_link(%Consumer{name: name} = args) when is_atom(name) do
     GenServer.start_link(__MODULE__, args, name: name)
+  end
+
+  def start_link(%Consumer{name: name} = args) do
+    GenServer.start_link(__MODULE__, args, name: register_name(name))
+  end
+
+  def register_name(name) do
+    {:via, Registry, {FluffleRegistry, "#{name}"}}
   end
 
   @impl true
   def init(
-        %Consumer{channel_name: channel_name, connection_name: connection_name, queue: queue} =
-          args
+        %Consumer{
+          channel_name: channel_name,
+          connection_name: connection_name,
+          queue: queue,
+          processor: %{module: processor_module}
+        } = args
       ) do
     # Get Channel and Monitor
-    {:ok, channel} = get_channel(channel_name, connection_name)
+    {:ok, {pid, channel}} = get_channel_from_pool(connection_name)
 
     # Declare exchanges
     setup_exchange(channel, args.exchange, args.exchange_type)
@@ -80,12 +120,17 @@ defmodule WhiteRabbit.Consumer do
     # Declare queues
     setup_queues(channel, args)
 
-    {:ok, %{channel: channel, consumer_tag: consumer_tag}} = channel_monitor(args)
+    {:ok, %{channel: channel, consumer_tag: consumer_tag}} = register_consumer(pid, channel, args)
 
     # Init state
     state = %Consumer.State{
       consumer_init_args: args,
-      state: %{channel: channel, queue: queue, consumer_tag: consumer_tag}
+      state: %{
+        channel: channel,
+        queue: queue,
+        consumer_tag: consumer_tag,
+        processor: processor_module
+      }
     }
 
     {:ok, state}
@@ -122,10 +167,16 @@ defmodule WhiteRabbit.Consumer do
   @impl true
   def handle_info(
         {:basic_deliver, payload, meta},
-        %Consumer.State{state: %{channel: channel}} = state
+        %Consumer.State{state: %{channel: channel, processor: processor}} = state
       ) do
-    # We might want to run payload consumption in separate Tasks in production
-    consume(channel, payload, meta)
+    Logger.debug("Received Message: #{inspect(self())} | #{inspect(payload)} | #{inspect(meta)}")
+
+    # To Do: Should this be spawned tasks linked to this process to prevent blocking? Maybe.
+    # But can also just configure a certain number of consumers on the same queue to provide concurrency as well.
+    case processor.consume_payload(payload, meta) do
+      {:ok, tag} -> Basic.ack(channel, tag)
+      {:error, {tag, opts}} -> Basic.reject(channel, tag, opts)
+    end
 
     {:noreply, state}
   end
@@ -150,8 +201,7 @@ defmodule WhiteRabbit.Consumer do
         {:DOWN, _, :process, pid, reason},
         %Consumer.State{state: %{channel: %{pid: pid}}} = state
       ) do
-    send(self(), :channel_monitor)
-    {:noreply, Map.put(state.state, :channel, nil)}
+    {:stop, :channel_died}
   end
 
   @impl true
@@ -168,12 +218,6 @@ defmodule WhiteRabbit.Consumer do
 
   """
   defp consume(channel, payload, %{delivery_tag: tag, redelivered: redelivered} = meta) do
-    Logger.debug(
-      "Received Message: #{inspect(self())} | #{inspect(tag)} | #{inspect(payload)} | #{
-        inspect(meta)
-      }"
-    )
-
     %{content_type: content_type} = meta
 
     case content_type do
@@ -202,17 +246,39 @@ defmodule WhiteRabbit.Consumer do
       :ok = Basic.reject(channel, tag, requeue: not redelivered)
   end
 
-  defp channel_monitor(
-         %Consumer{connection_name: connection_name, channel_name: channel_name, queue: queue} =
-           _args
-       ) do
+  defp register_consumer(pid, active_channel, %Consumer{} = args) do
+    %Consumer{
+      queue: queue,
+      prefetch_count: prefetch_count
+    } = args
+
+    # Monitor Channel Process to allow for recovery
+    Process.monitor(pid)
+
+    # Limit unacknowledged messages to given prefetch_count
+    Basic.qos(active_channel, prefetch_count: prefetch_count)
+
+    # Register the GenServer process as a consumer to the server
+    {:ok, consumer_tag} = Basic.consume(active_channel, queue)
+
+    {:ok, %{channel: active_channel, consumer_tag: consumer_tag}}
+  end
+
+  defp channel_monitor(%Consumer{} = args) do
+    %Consumer{
+      connection_name: connection_name,
+      channel_name: channel_name,
+      queue: queue,
+      prefetch_count: prefetch_count
+    } = args
+
     case get_channel(channel_name, connection_name) do
       {:ok, channel} ->
         # Monitor Channel Process to allow for recovery
         Process.monitor(channel.pid)
 
-        # Limit unacknowledged messages to 10
-        Basic.qos(channel, prefetch_count: 10)
+        # Limit unacknowledged messages to given prefetch_count
+        Basic.qos(channel, prefetch_count: prefetch_count)
 
         # Register the GenServer process as a consumer to the server
         {:ok, consumer_tag} = Basic.consume(channel, queue)
@@ -222,6 +288,21 @@ defmodule WhiteRabbit.Consumer do
       _ ->
         Process.send_after(self(), :channel_monitor, 5000)
         {:error, :retrying}
+    end
+  end
+
+  def test_start_dynamic_consumers(concurrency) when is_integer(concurrency) do
+    for i <- 1..concurrency do
+      DynamicSupervisor.start_child(
+        WhiteRabbit.Fluffle.DynamicSupervisor.Consumer,
+        {WhiteRabbit.Consumer,
+         %WhiteRabbit.Consumer{
+           name: "Aggie.TestJsonProcessor:#{i}",
+           exchange: "json_test_exchange",
+           queue: "json_test_queue",
+           processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+         }}
+      )
     end
   end
 end
