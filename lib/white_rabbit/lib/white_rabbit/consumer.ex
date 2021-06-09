@@ -291,16 +291,20 @@ defmodule WhiteRabbit.Consumer do
     end
   end
 
-  def test_start_dynamic_consumers(concurrency) when is_integer(concurrency) do
+  def test_start_dynamic_consumers(config, concurrency)
+      when is_integer(concurrency) and is_map(config) do
+    %WhiteRabbit.Consumer{name: name, exchange: exchange, queue: queue, processor: processor} =
+      config
+
     for i <- 1..concurrency do
       DynamicSupervisor.start_child(
         WhiteRabbit.Fluffle.DynamicSupervisor.Consumer,
         {WhiteRabbit.Consumer,
          %WhiteRabbit.Consumer{
-           name: "Aggie.TestJsonProcessor:#{i}",
-           exchange: "json_test_exchange",
-           queue: "json_test_queue",
-           processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+           name: "#{name}:#{i}",
+           exchange: exchange,
+           queue: queue,
+           processor: processor
          }}
       )
     end

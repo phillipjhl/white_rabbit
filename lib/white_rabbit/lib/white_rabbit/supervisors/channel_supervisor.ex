@@ -1,6 +1,14 @@
 defmodule WhiteRabbit.ChannelSupervisor do
   @moduledoc """
   Supervisor of multiple AMQP Channels
+
+  Channel Pool layout:
+
+       ChannelSupervisor
+        /      |      \
+       /       |       \
+  Channel   Channel   Channel
+
   """
 
   use Supervisor
@@ -14,7 +22,7 @@ defmodule WhiteRabbit.ChannelSupervisor do
   def init(%{connection: connection, channels: channels}) do
     channel_child_specs =
       Enum.map(channels, fn channel ->
-        # All register to main Channel Process Registry
+        # All channels will register to main Channel Process Registry
         %{
           id: channel.name,
           start:

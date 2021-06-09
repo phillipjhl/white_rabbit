@@ -5,6 +5,13 @@ defmodule WhiteRabbit.ChannelsAndConnSupervisor do
   Has startegy :rest_for_one so if the `WhiteRabbit.Connection` dies, the connection will be restarted along with all the channels associated with the `WhiteRabbit.ChannelSupervisor`.
 
   If only one channel dies, this supervisor doesn't care as that's the job of the `WhiteRabbit.ChannelSupervisor`.
+
+  ChannelsAndConnSupervisor Layout:
+
+       ChannelSupervisor
+        /             \
+       /               \
+  AMQP Conn.      WhiteRabbit.ChannelSupervisor
   """
   use Supervisor
 
@@ -21,7 +28,7 @@ defmodule WhiteRabbit.ChannelsAndConnSupervisor do
 
   @impl true
   def init(
-        %Connection{connection_name: connection_name, conn_opts: conn_opts, channels: channels} =
+        %Connection{connection_name: connection_name, conn_opts: _conn_opts, channels: channels} =
           opts
       ) do
     children = [

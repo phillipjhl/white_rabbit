@@ -2,6 +2,8 @@ defmodule WhiteRabbit.Fluffle do
   @moduledoc """
   Supervisor of multiple DynamicSupervisors that will handle starting Consumers and Producers.
 
+  Uses a Registry to hanle tracking of all the dynamically spawned child processes under this Supervisor.
+
   FUN FACT: Did you a group of rabbits is called a fluffle? Neither did I.
   """
 
@@ -25,6 +27,8 @@ defmodule WhiteRabbit.Fluffle do
       # DynamicSupervisor for producers
       {DynamicSupervisor,
        [name: WhiteRabbit.Fluffle.DynamicSupervisor.Producer, strategy: :one_for_one]}
+
+      #  Start Up Test Consumer
       # {WhiteRabbit.Consumer,
       #  %WhiteRabbit.Consumer{
       #    name: :JsonConsumer,
