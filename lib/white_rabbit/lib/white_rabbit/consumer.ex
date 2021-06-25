@@ -34,10 +34,12 @@ defmodule WhiteRabbit.Consumer do
   DynamicSupervisor.start_child(
     WhiteRabbit.Fluffle.DynamicSupervisor.Consumer,
     {WhiteRabbit.Consumer, %WhiteRabbit.Consumer{
-               name: :JsonConsumer,
-               exchange: "json_test_exchange",
-               queue: "json_test_queue",
-               processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+      connection_name: :aggie_connection,
+      name: "Aggie.JsonConsumer",
+      exchange: "json_test_exchange",
+      queue: "json_test_queue",
+      processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor},
+      prefetch_count: 50
       }
     }
   )
@@ -72,7 +74,8 @@ defmodule WhiteRabbit.Consumer do
             exchange_type: :topic,
             binding_keys: ["#"],
             processor: nil,
-            prefetch_count: 5
+            prefetch_count: 10,
+            uuid_name: ""
 
   @type t :: %__MODULE__{
           name: __MODULE__.t(),
@@ -84,7 +87,8 @@ defmodule WhiteRabbit.Consumer do
           exchange_type: atom(),
           binding_keys: [String.t()],
           processor: WhiteRabbit.Processor.Config.t(),
-          prefetch_count: integer()
+          prefetch_count: integer(),
+          uuid_name: String.t()
         }
 
   @doc """
@@ -95,11 +99,15 @@ defmodule WhiteRabbit.Consumer do
   end
 
   def start_link(%Consumer{name: name} = args) do
-    GenServer.start_link(__MODULE__, args, name: register_name(name))
+    uuid_name = "#{name}-#{uuid_tag(8)}"
+    Logger.debug(uuid_name)
+    args = Map.put(args, :uuid_name, uuid_name)
+    Logger.debug(inspect(args))
+    GenServer.start_link(__MODULE__, args, name: register_name(uuid_name))
   end
 
   def register_name(name) do
-    {:via, Registry, {FluffleRegistry, "#{name}"}}
+    {:via, Registry, {FluffleRegistry, name}}
   end
 
   @impl true
@@ -210,46 +218,12 @@ defmodule WhiteRabbit.Consumer do
     {:noreply, state}
   end
 
-  @doc """
-  Consume function that actually processes the message.any()
-
-  TO DO: Probably need to have the actual 'processor' functions in seperate spawned workers to keep them out
-  of the Consumer Genserver process. The spawned workers can then send acks or rejects.
-
-  """
-  defp consume(channel, payload, %{delivery_tag: tag, redelivered: redelivered} = meta) do
-    %{content_type: content_type} = meta
-
-    case content_type do
-      "application/json" ->
-        {:ok, _json} = Jason.decode(payload)
-
-        # If decoded, send ack to server
-        Basic.ack(channel, tag)
-
-      _ ->
-        Logger.warn(
-          "Payload #{inspect(tag)} did not have correct content_type property set. Not requeing."
-        )
-
-        :ok = Basic.reject(channel, tag, requeue: false)
-    end
-  rescue
-    # Requeue unless it's a redelivered message.
-    # This means we will retry consuming a message once in case of exception
-    # before we give up and have it moved to the error queue
-
-    exception ->
-      # To Do: Further iterations should be able to discern if the error was internal or not. If a failure is caused
-      # an internal/external service being down for instance, there should be a dedicated queue to allow for re-routing and re-processing if needed.
-      Logger.warn("Error consuming message: #{tag} #{inspect(exception)}")
-      :ok = Basic.reject(channel, tag, requeue: not redelivered)
-  end
-
   defp register_consumer(pid, active_channel, %Consumer{} = args) do
     %Consumer{
       queue: queue,
-      prefetch_count: prefetch_count
+      prefetch_count: prefetch_count,
+      name: name,
+      uuid_name: uuid_name
     } = args
 
     # Monitor Channel Process to allow for recovery
@@ -259,7 +233,8 @@ defmodule WhiteRabbit.Consumer do
     Basic.qos(active_channel, prefetch_count: prefetch_count)
 
     # Register the GenServer process as a consumer to the server
-    {:ok, consumer_tag} = Basic.consume(active_channel, queue)
+    {:ok, consumer_tag} =
+      Basic.consume(active_channel, queue, nil, consumer_tag: "ctag-#{uuid_name}")
 
     {:ok, %{channel: active_channel, consumer_tag: consumer_tag}}
   end
@@ -293,14 +268,20 @@ defmodule WhiteRabbit.Consumer do
 
   def test_start_dynamic_consumers(config, concurrency)
       when is_integer(concurrency) and is_map(config) do
-    %WhiteRabbit.Consumer{name: name, exchange: exchange, queue: queue, processor: processor} =
-      config
+    %WhiteRabbit.Consumer{
+      connection_name: connection_name,
+      name: name,
+      exchange: exchange,
+      queue: queue,
+      processor: processor
+    } = config
 
     for i <- 1..concurrency do
       DynamicSupervisor.start_child(
         WhiteRabbit.Fluffle.DynamicSupervisor.Consumer,
         {WhiteRabbit.Consumer,
          %WhiteRabbit.Consumer{
+           connection_name: connection_name,
            name: "#{name}:#{i}",
            exchange: exchange,
            queue: queue,

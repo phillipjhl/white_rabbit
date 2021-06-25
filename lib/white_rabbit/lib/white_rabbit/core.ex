@@ -121,19 +121,61 @@ defmodule WhiteRabbit.Core do
         payload \\ %{hello: "world"},
         options \\ []
       ) do
-    {:ok, {_pid, channel}} = get_channel_from_pool(:whiterabbit_default_connection)
+    # {:ok, {_pid, channel}} = get_channel_from_pool(:whiterabbit_default_connection)
     # exchange = "json_test_exchange"
     # routing_key = "test_json"
     payload = Jason.encode!(payload)
 
     all_options =
       [
-        content_type: "application/json",
-        timestamp: :os.system_time(:milliseconds)
+        content_type: "application/json"
       ] ++ options
 
     for i <- 1..number do
-      AMQP.Basic.publish(channel, exchange, routing_key, payload, all_options)
+      WhiteRabbit.Producer.publish(:aggie_connection, exchange, routing_key, payload, all_options)
     end
+  end
+
+  @doc """
+  Consume function that actually processes the message.any()
+
+  TO DO: Probably need to have the actual 'processor' functions in seperate spawned workers to keep them out
+  of the Consumer Genserver process. The spawned workers can then send acks or rejects.
+
+  """
+  defp test_consume(channel, payload, %{delivery_tag: tag, redelivered: redelivered} = meta) do
+    %{content_type: content_type} = meta
+
+    case content_type do
+      "application/json" ->
+        {:ok, _json} = Jason.decode(payload)
+
+        # If decoded, send ack to server
+        Basic.ack(channel, tag)
+
+      _ ->
+        Logger.warn(
+          "Payload #{inspect(tag)} did not have correct content_type property set. Not requeing."
+        )
+
+        :ok = Basic.reject(channel, tag, requeue: false)
+    end
+  rescue
+    # Requeue unless it's a redelivered message.
+    # This means we will retry consuming a message once in case of exception
+    # before we give up and have it moved to the error queue
+
+    exception ->
+      # To Do: Further iterations should be able to discern if the error was internal or not. If a failure is caused
+      # an internal/external service being down for instance, there should be a dedicated queue to allow for re-routing and re-processing if needed.
+      Logger.warn("Error consuming message: #{tag} #{inspect(exception)}")
+      :ok = Basic.reject(channel, tag, requeue: not redelivered)
+  end
+
+  @spec uuid_tag(integer) :: binary
+  def uuid_tag(bytes_count) do
+    bytes_count
+    |> :crypto.strong_rand_bytes()
+    |> Base.url_encode64(padding: false)
   end
 end

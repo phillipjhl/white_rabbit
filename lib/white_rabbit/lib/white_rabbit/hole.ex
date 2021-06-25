@@ -29,18 +29,6 @@ defmodule WhiteRabbit.Hole do
     connections =
       [
         %Connection{
-          connection_name: :whiterabbit_default_connection,
-          conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
-          channels: [
-            %{
-              name: :default_consumer_channel
-            },
-            %{
-              name: :default_producer_channel
-            }
-          ]
-        },
-        %Connection{
           connection_name: :whiterabbit_rpc_connection,
           conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
           channels: [
