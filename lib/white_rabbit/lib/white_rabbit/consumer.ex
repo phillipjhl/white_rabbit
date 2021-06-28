@@ -55,7 +55,7 @@ defmodule WhiteRabbit.Consumer do
 
   """
 
-  use GenServer
+  use GenServer, restart: :transient
   import WhiteRabbit.Core
 
   alias AMQP.{Connection, Channel, Exchange, Queue, Basic}
@@ -210,6 +210,12 @@ defmodule WhiteRabbit.Consumer do
         %Consumer.State{state: %{channel: %{pid: pid}}} = state
       ) do
     {:stop, :channel_died}
+  end
+
+  @impl true
+  def handle_info(:graceful_stop, %Consumer.State{} = state) do
+    Logger.info("Stopping Consumer Genserver normally.")
+    {:stop, :normal, state}
   end
 
   @impl true
