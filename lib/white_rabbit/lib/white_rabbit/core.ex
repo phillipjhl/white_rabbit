@@ -21,22 +21,24 @@ defmodule WhiteRabbit.Core do
           exchange: exchange,
           queue: queue,
           error_queue: error_queue,
-          binding_keys: binding_keys
+          binding_keys: binding_keys,
+          queue_opts: queue_opts
         } = _opts
       ) do
     if error_queue do
       # Declare error queue set in Genserver options
-      {:ok, _} = Queue.declare(channel, "#{queue}_errors", durable: true)
+      {:ok, _} = Queue.declare(channel, "#{queue}_errors", queue_opts)
     end
 
-    Enum.each(binding_keys, &declare_queue(channel, queue, error_queue, exchange, &1))
+    Enum.each(binding_keys, &declare_queue(channel, queue, error_queue, exchange, queue_opts, &1))
   end
 
   @doc """
   Declare a queue with a dead-letter queue
   """
-  @spec declare_queue(Channel.t(), String.t(), String.t(), Exchange.t(), String.t()) :: :ok
-  def declare_queue(channel, queue, error_queue, exchange, binding_key) do
+  @spec declare_queue(Channel.t(), String.t(), String.t(), Exchange.t(), Keyword.t(), String.t()) ::
+          :ok
+  def declare_queue(channel, queue, error_queue, exchange, queue_opts, binding_key) do
     # Messages that cannot be delivered to any consumer in the main queue will be routed to the error queue
     arguments =
       case error_queue do
@@ -50,11 +52,9 @@ defmodule WhiteRabbit.Core do
           []
       end
 
-    {:ok, _} =
-      Queue.declare(channel, queue,
-        durable: true,
-        arguments: arguments
-      )
+    queue_opts = queue_opts ++ [arguments: arguments]
+
+    {:ok, _} = Queue.declare(channel, queue, queue_opts)
 
     # Bind queue to exchange for each routing key
     Queue.bind(channel, queue, exchange, routing_key: binding_key)
@@ -69,8 +69,10 @@ defmodule WhiteRabbit.Core do
         exchange,
         exchange_type
       ) do
-    # Declare Exchange to use with Genserver Consumer
-    Exchange.declare(channel, exchange, exchange_type, durable: true)
+    if String.length(exchange) > 0 do
+      # Declare Exchange to use with Genserver Consumer
+      Exchange.declare(channel, exchange, exchange_type, durable: true)
+    end
   end
 
   @doc """
@@ -173,7 +175,7 @@ defmodule WhiteRabbit.Core do
   end
 
   @spec uuid_tag(integer) :: binary
-  def uuid_tag(bytes_count) do
+  def uuid_tag(bytes_count \\ 8) do
     bytes_count
     |> :crypto.strong_rand_bytes()
     |> Base.url_encode64(padding: false)

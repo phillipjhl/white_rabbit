@@ -5,12 +5,13 @@ defmodule WhiteRabbit.Processor.Config do
   """
 
   @enforce_keys [:module]
-  defstruct module: nil
+  defstruct module: nil, function: nil
 
   @typedoc """
     * module - Module that implements the `WhiteRabbit.Processor` behaviour
   """
   @type t :: %__MODULE__{
-          module: module()
+          module: module(),
+          function: atom()
         }
 end

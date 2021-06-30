@@ -68,19 +68,21 @@ defmodule WhiteRabbit.Consumer do
   defstruct name: __MODULE__,
             exchange: "",
             queue: "",
+            queue_opts: [durable: true],
             error_queue: true,
             channel_name: :default_consumer_channel,
             connection_name: :whiterabbit_default_connection,
             exchange_type: :topic,
             binding_keys: ["#"],
             processor: nil,
-            prefetch_count: 10,
+            prefetch_count: 100,
             uuid_name: ""
 
   @type t :: %__MODULE__{
           name: __MODULE__.t(),
           exchange: String.t(),
           queue: String.t(),
+          queue_opts: Keyword.t(),
           error_queue: boolean(),
           channel_name: String.t(),
           connection_name: Sting.t(),
@@ -113,10 +115,9 @@ defmodule WhiteRabbit.Consumer do
   @impl true
   def init(
         %Consumer{
-          channel_name: channel_name,
           connection_name: connection_name,
           queue: queue,
-          processor: %{module: processor_module}
+          processor: processor
         } = args
       ) do
     # Get Channel and Monitor
@@ -137,7 +138,7 @@ defmodule WhiteRabbit.Consumer do
         channel: channel,
         queue: queue,
         consumer_tag: consumer_tag,
-        processor: processor_module
+        processor: processor
       }
     }
 
@@ -181,9 +182,15 @@ defmodule WhiteRabbit.Consumer do
 
     # To Do: Should this be spawned tasks linked to this process to prevent blocking? Maybe.
     # But can also just configure a certain number of consumers on the same queue to provide concurrency as well.
-    case processor.consume_payload(payload, meta) do
-      {:ok, tag} -> Basic.ack(channel, tag)
-      {:error, {tag, opts}} -> Basic.reject(channel, tag, opts)
+    %{module: processor_module, function: processor_function} = processor
+
+    if processor_function do
+      apply(processor_module, processor_function, [channel, payload, meta])
+    else
+      case processor.consume_payload(payload, meta) do
+        {:ok, tag} -> Basic.ack(channel, tag)
+        {:error, {tag, opts}} -> Basic.reject(channel, tag, opts)
+      end
     end
 
     {:noreply, state}
