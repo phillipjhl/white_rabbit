@@ -15,6 +15,9 @@ defmodule WhiteRabbit.Channel do
             connection: nil,
             counter_agent: nil
 
+  @typedoc """
+    `%WhiteRabbit.Channel{}` struct that defines the nessecary config for creating channel GenServers.`
+  """
   @type t :: %__MODULE__{name: atom(), connection: atom(), counter_agent: pid()}
 
   def start_link(%__MODULE__{name: name, connection: connection}) do

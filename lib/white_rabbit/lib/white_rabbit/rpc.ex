@@ -2,6 +2,11 @@ defmodule WhiteRabbit.RPC do
   @moduledoc """
   RPC module that handles decoding, encoding, and processing of RPC calls.
 
+  #### Start Setup
+  Pass the WhiteRabbit `rpc_enabled: true` option as well as the config map via the `rpc_config` option.
+
+  Use the optional WhiteRabbit callback: `WhiteRabbit.get_rpc_config()` to output correct format.
+
   #### Testing
   `iex> WhiteRabbit.RPC.call("aggie", {Aggie.Utils, :get_versions, []})`
   """

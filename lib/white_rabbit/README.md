@@ -45,7 +45,9 @@ Supervisor.start_link(children, opts)
 
 ### Start Dynamic Consumers
 
-The processor module needs to exist befre trying to register a consumer for it.
+The processor module needs to exist before trying to register a consumer for it.
+
+See `WhiteRabbit.Processor` module for more info on that behaviour
 
 ```elixir
 aggie_config = %WhiteRabbit.Consumer{
@@ -72,6 +74,10 @@ WhiteRabbit.Consumer.test_start_dynamic_consumers(jeopardy_config, 3)
 WhiteRabbit.Core.test_publish(100, "json_test_exchange", "test_json", %{hello: "there"})
 WhiteRabbit.Core.test_publish(100, "jeopardy_json_test_exchange", "test_json", %{hello: "there"})
 ```
+
+### RPC Calls
+
+See `WhiteRabbit.RPC` for more information on RPC calls and message handling.
 
 ## To Generate ExDocs
 

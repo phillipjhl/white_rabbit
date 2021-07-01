@@ -37,7 +37,7 @@ defmodule WhiteRabbit.Processor do
   @doc """
   Callback function to process payload from a message.
 
-  Must return {:ok, delivery_tag()} tuple to allow for proper ack.any()
+  Must return {:ok, delivery_tag()} tuple to allow for proper ack.
 
   Or {:error, reason} tuple for rejects.
   """

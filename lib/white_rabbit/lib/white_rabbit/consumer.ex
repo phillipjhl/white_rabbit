@@ -129,6 +129,7 @@ defmodule WhiteRabbit.Consumer do
     # Declare queues
     setup_queues(channel, args)
 
+    # Register consumer to configured queue.
     {:ok, %{channel: channel, consumer_tag: consumer_tag}} = register_consumer(pid, channel, args)
 
     # Init state
@@ -161,7 +162,7 @@ defmodule WhiteRabbit.Consumer do
         {:basic_cancel, %{consumer_tag: _consumer_tag}},
         %Consumer.State{state: %{channel: _channel}} = state
       ) do
-    {:stop, :normal, state}
+    {:stop, :abnormal, state}
   end
 
   # Confirmation sent by the broker to the consumer process after a Basic.cancel
@@ -181,13 +182,16 @@ defmodule WhiteRabbit.Consumer do
     Logger.debug("Received Message: #{inspect(self())} | #{inspect(payload)} | #{inspect(meta)}")
 
     # To Do: Should this be spawned tasks linked to this process to prevent blocking? Maybe.
-    # But can also just configure a certain number of consumers on the same queue to provide concurrency as well.
+    # But can also just configure a certain number of consumers on the same queue to provide concurrency as well. (Current Way)
     %{module: processor_module, function: processor_function} = processor
 
-    if processor_function do
+    # If there is a given function, then apply that mfa
+    Logger.debug(inspect(processor))
+
+    if processor_function !== nil do
       apply(processor_module, processor_function, [channel, payload, meta])
     else
-      case processor.consume_payload(payload, meta) do
+      case processor_module.consume_payload(payload, meta) do
         {:ok, tag} -> Basic.ack(channel, tag)
         {:error, {tag, opts}} -> Basic.reject(channel, tag, opts)
       end
@@ -212,6 +216,8 @@ defmodule WhiteRabbit.Consumer do
     end
   end
 
+  # Handle monitored channel to allow for restarts of Consumer so it can re-register the restarted GenServer with new open channel.
+  @impl true
   def handle_info(
         {:DOWN, _, :process, pid, reason},
         %Consumer.State{state: %{channel: %{pid: pid}}} = state
@@ -219,6 +225,8 @@ defmodule WhiteRabbit.Consumer do
     {:stop, :channel_died}
   end
 
+  # Handle a :graceful_stop message to allow for normal stop of Consumer. Useful for killing excessive Consumer that were started
+  # with the `WhiteRabbit.Fluffle` DynamicSupervisor
   @impl true
   def handle_info(:graceful_stop, %Consumer.State{} = state) do
     Logger.info("Stopping Consumer Genserver normally.")

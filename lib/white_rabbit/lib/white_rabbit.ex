@@ -25,13 +25,12 @@ defmodule WhiteRabbit do
   """
   @type on_start() :: {:ok, pid()} | :ignore | {:error, {:already_started, pid()} | term()}
 
-  def get_config(app) do
-    [%{}]
-  end
+  @doc """
+  Returns a map of a rpc_config to configure the correct rpc queues and consumers.
+  """
+  @callback get_rpc_config() :: WhiteRabbit.RPC.Config.t()
 
-  @callback get_config(atom()) :: [%{}]
-
-  @optional_callbacks get_config: 1
+  @optional_callbacks get_rpc_config: 0
 
   @doc """
   Start the WhiteRabbit.

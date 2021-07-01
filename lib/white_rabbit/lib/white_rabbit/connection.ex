@@ -68,6 +68,9 @@ defmodule WhiteRabbit.Connection do
   @type conn_opt :: {:url, String.t()} | {:options, keyword()}
   @type conn_opts :: [conn_opt()]
 
+  @typedoc """
+  %WhiteRabbit.Connection{} struct type, used for initial config and GenServer state.
+  """
   @type t :: %__MODULE__{connection_name: atom(), conn_opts: keyword(), channels: list(map())}
 
   def start_link(%__MODULE__{connection_name: connection_name} = opts) do

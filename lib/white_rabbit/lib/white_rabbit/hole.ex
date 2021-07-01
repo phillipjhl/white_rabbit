@@ -25,7 +25,7 @@ defmodule WhiteRabbit.Hole do
     name = Keyword.get(arg, :name, __MODULE__)
     additional_children = Keyword.get(arg, :children, [])
     additional_connections = Keyword.get(arg, :connections, [])
-    rpc_enabled = Keyword.get(arg, :rpc_enabled, true)
+    rpc_enabled = Keyword.get(arg, :rpc_enabled, false)
 
     connections =
       [
@@ -38,6 +38,15 @@ defmodule WhiteRabbit.Hole do
             },
             %{
               name: :rpc_producer_channel
+            }
+          ]
+        },
+        %Connection{
+          connection_name: :whiterabbit_default_connection,
+          conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
+          channels: [
+            %{
+              name: :default_consumer_channel
             }
           ]
         }
@@ -62,39 +71,14 @@ defmodule WhiteRabbit.Hole do
 
   def configure_rpc_topology(enabled, arg) do
     if enabled do
-      reply_id = Core.uuid_tag()
-
       # Get config or use default
-      rpc_config =
-        Keyword.get(arg, :rpc_config, %{
-          service_consumer: %WhiteRabbit.Consumer{
-            connection_name: :whiterabbit_rpc_conn,
-            name: "Aggie.RPC.Receiver",
-            exchange: "suzerain.rpcs.exchange",
-            queue: "aggie.rpcs",
-            queue_opts: [auto_delete: true, durable: true],
-            binding_keys: ["aggie.rpcs"],
-            error_queue: false,
-            processor: %WhiteRabbit.Processor.Config{module: RPC, function: :handle_rpc_message!}
-          },
-          replies_consumer: %WhiteRabbit.Consumer{
-            connection_name: :whiterabbit_rpc_conn,
-            name: "Aggie.RPC.Replies",
-            exchange: "amq.direct",
-            exchange_type: :direct,
-            queue: "aggie.rpcs.replies.#{reply_id}",
-            queue_opts: [auto_delete: true, durable: false, exclusive: true],
-            binding_keys: ["#{reply_id}"],
-            error_queue: false,
-            processor: %WhiteRabbit.Processor.Config{module: RPC, function: :return_rpc_message!}
-          },
-          service_name: "aggie"
-        })
+      rpc_config = Keyword.get(arg, :rpc_config, %{})
 
       %{
         service_consumer: service_consumer,
         replies_consumer: replies_consumer,
-        service_name: service_name
+        service_name: service_name,
+        reply_id: reply_id
       } = rpc_config
 
       rpc_children = [
