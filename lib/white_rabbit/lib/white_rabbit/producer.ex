@@ -60,11 +60,11 @@ defmodule WhiteRabbit.Producer do
       module: __MODULE__
     }
 
-    start = :os.system_time(:millisecond)
+    start = :os.system_time()
 
     :telemetry.execute(
       [:white_rabbit, :publish, :start],
-      %{time: :os.system_time(:millisecond), count: 1},
+      %{time: :os.system_time(), count: 1},
       metadata
     )
 
@@ -86,7 +86,7 @@ defmodule WhiteRabbit.Producer do
 
       result = Basic.publish(channel, exchange, routing_key, message, all_options)
 
-      stop = :os.system_time(:millisecond)
+      stop = :os.system_time()
 
       :telemetry.execute(
         [:white_rabbit, :publish, :stop],

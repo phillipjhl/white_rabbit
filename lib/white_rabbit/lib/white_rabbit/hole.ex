@@ -72,6 +72,7 @@ defmodule WhiteRabbit.Hole do
             name: "Aggie.RPC.Receiver",
             exchange: "suzerain.rpcs.exchange",
             queue: "aggie.rpcs",
+            queue_opts: [auto_delete: true, durable: true],
             binding_keys: ["aggie.rpcs"],
             error_queue: false,
             processor: %WhiteRabbit.Processor.Config{module: RPC, function: :handle_rpc_message!}
