@@ -17,7 +17,7 @@ defmodule WhiteRabbit.RPC do
   alias AMQP.{Basic}
 
   @typedoc """
-  Service that the call will be sent to.
+  Service that a rpc call will be sent to.
 
   Ex: "aggie"
   """
@@ -33,7 +33,7 @@ defmodule WhiteRabbit.RPC do
 
     # Start task, return awaited result
     task = Task.async(fn -> call(caller_id, service, mfa, timeout) end)
-    Task.await(task, timeout)
+    Task.await(task, timeout + 1000)
   end
 
   @spec call(String.t(), service_rpc, {module, atom(), []}, timeout :: integer()) ::
@@ -123,7 +123,7 @@ defmodule WhiteRabbit.RPC do
     end
   end
 
-  defp process_rpc_message(%WhiteRabbit.RPC.Message{} = message, metadata) do
+  defp process_rpc_message(%WhiteRabbit.RPC.Message{} = message, _metadata) do
     %WhiteRabbit.RPC.Message{
       module: module,
       function: function,
