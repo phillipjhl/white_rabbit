@@ -34,10 +34,7 @@ defmodule WhiteRabbit.Hole do
           conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
           channels: [
             %{
-              name: :rpc_consumer_channel
-            },
-            %{
-              name: :rpc_producer_channel
+              name: :default_rpc_channel
             }
           ]
         },
@@ -64,7 +61,7 @@ defmodule WhiteRabbit.Hole do
         {Fluffle, []}
       ] ++ additional_children ++ [configure_rpc_topology(rpc_enabled, arg)]
 
-    Logger.info("Starting the #{name}")
+    Logger.info("Starting the #{name} Hole")
 
     Supervisor.init(children, strategy: :rest_for_one)
   end
@@ -104,7 +101,8 @@ defmodule WhiteRabbit.Hole do
       # Supervisor Map
       %{
         id: WhiteRabbit.RPC.Supervisor,
-        start: {Supervisor, :start_link, [rpc_children, [strategy: :one_for_one]]}
+        start: {Supervisor, :start_link, [rpc_children, [strategy: :rest_for_one]]},
+        type: :supervisor
       }
     end
   end

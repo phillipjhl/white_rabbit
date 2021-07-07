@@ -9,5 +9,6 @@ defmodule WhiteRabbit.Consumer.State do
               queue: nil,
               consumer_tag: nil,
               processor: nil
-            }
+            },
+            backoff_agent_pid: nil
 end

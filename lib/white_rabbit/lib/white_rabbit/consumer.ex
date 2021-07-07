@@ -121,29 +121,28 @@ defmodule WhiteRabbit.Consumer do
         } = args
       ) do
     # Get Channel and Monitor
-    {:ok, {pid, channel}} = get_channel_from_pool(connection_name)
+    case get_channel_from_pool(connection_name) do
+      {:ok, {_pid, _channel} = channel} ->
+        {:ok, state} = init_consumer(args, channel)
+        {:ok, state}
 
-    # Declare exchanges
-    setup_exchange(channel, args.exchange, args.exchange_type)
+      {:error, error} ->
+        # Start backoff agent
+        {:ok, agent_pid} = Agent.start_link(fn -> 1 end)
 
-    # Declare queues
-    setup_queues(channel, args)
+        Logger.error(
+          "Error getting channel from pool: #{error}. Try restarting the child if a connection is made."
+        )
 
-    # Register consumer to configured queue.
-    {:ok, %{channel: channel, consumer_tag: consumer_tag}} = register_consumer(pid, channel, args)
+        {:ok,
+         %Consumer.State{
+           consumer_init_args: args,
+           backoff_agent_pid: agent_pid
+         }, {:continue, error}}
 
-    # Init state
-    state = %Consumer.State{
-      consumer_init_args: args,
-      state: %{
-        channel: channel,
-        queue: queue,
-        consumer_tag: consumer_tag,
-        processor: processor
-      }
-    }
-
-    {:ok, state}
+      _ ->
+        :ignore
+    end
   end
 
   # Confirmation sent by the broker after registering this process as a consumer
@@ -219,8 +218,8 @@ defmodule WhiteRabbit.Consumer do
   # Handle monitored channel to allow for restarts of Consumer so it can re-register the restarted GenServer with new open channel.
   @impl true
   def handle_info(
-        {:DOWN, _, :process, pid, reason},
-        %Consumer.State{state: %{channel: %{pid: pid}}} = state
+        {:DOWN, _, :process, _pid, _reason},
+        %Consumer.State{} = _state
       ) do
     {:stop, :channel_died}
   end
@@ -239,6 +238,43 @@ defmodule WhiteRabbit.Consumer do
     {:noreply, state}
   end
 
+  @impl true
+  def handle_continue(:no_channels_registered, %Consumer.State{} = state) do
+    %{consumer_init_args: consumer_init_args} = state
+
+    backoff_exp = get_backoff(state.backoff_agent_pid)
+    backoff_delay = 6000 + 1000 * backoff_exp
+
+    Logger.info(
+      "Retrying to init #{consumer_init_args.uuid_name} after #{backoff_delay / 1000} seconds."
+    )
+
+    :timer.sleep(backoff_delay)
+
+    with {:ok, channel} <- get_channel_from_pool(consumer_init_args.connection_name),
+         {:ok, new_state} <- init_consumer(consumer_init_args, channel) do
+      {:noreply, new_state, state}
+    else
+      {:error, reason} -> {:noreply, state, {:continue, reason}}
+      _ -> {:stop, :unknown}
+    end
+  end
+
+  # Catch remaining continue commands
+  @impl true
+  def handle_continue(continue, state) do
+    {:noreply, state}
+  end
+
+  @doc """
+  Register process as consumer.
+
+  Returns {:ok, %{channel: active_channel, consumer_tag: consumer_tag}} if succesful.
+
+  Monitors the active AMQP Channel process pid to allow parent process to handle incoming :DOWN messages.
+
+  Sets the prefetch_count for the given connection as well.
+  """
   defp register_consumer(pid, active_channel, %Consumer{} = args) do
     %Consumer{
       queue: queue,
@@ -270,21 +306,45 @@ defmodule WhiteRabbit.Consumer do
 
     case get_channel(channel_name, connection_name) do
       {:ok, channel} ->
-        # Monitor Channel Process to allow for recovery
-        Process.monitor(channel.pid)
-
-        # Limit unacknowledged messages to given prefetch_count
-        Basic.qos(channel, prefetch_count: prefetch_count)
-
-        # Register the GenServer process as a consumer to the server
-        {:ok, consumer_tag} = Basic.consume(channel, queue)
-
-        {:ok, %{channel: channel, consumer_tag: consumer_tag}}
+        register_consumer(channel.pid, channel, args)
 
       _ ->
         Process.send_after(self(), :channel_monitor, 5000)
         {:error, :retrying}
     end
+  end
+
+  @spec init_consumer(args :: map(), channel :: {pid(), any()}) :: {:ok, map()}
+  defp init_consumer(%Consumer{} = args, channel) do
+    %Consumer{
+      queue: queue,
+      processor: processor
+    } = args
+
+    {pid, active_channel} = channel
+
+    # Declare exchanges
+    setup_exchange(active_channel, args.exchange, args.exchange_type)
+
+    # Declare queues
+    setup_queues(active_channel, args)
+
+    # Register consumer to configured queue.
+    {:ok, %{channel: active_channel, consumer_tag: consumer_tag}} =
+      register_consumer(pid, active_channel, args)
+
+    # Init state
+    state = %Consumer.State{
+      consumer_init_args: args,
+      state: %{
+        channel: active_channel,
+        queue: queue,
+        consumer_tag: consumer_tag,
+        processor: processor
+      }
+    }
+
+    {:ok, state}
   end
 
   def test_start_dynamic_consumers(config, concurrency)

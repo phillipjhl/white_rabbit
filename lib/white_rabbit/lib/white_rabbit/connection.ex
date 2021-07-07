@@ -121,7 +121,7 @@ defmodule WhiteRabbit.Connection do
         {:DOWN, _, :process, _pid, reason},
         state
       ) do
-    Logger.warn(inspect(reason))
+    Logger.warn("WhiteRabbit.Connection received :DOWN message. Reason: #{inspect(reason)}")
     # Trigger restart of connection GenServer from the Supervisor if AMQP connection is closed
     {:stop, :connection_down, state}
   end

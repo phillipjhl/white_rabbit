@@ -11,6 +11,8 @@ defmodule WhiteRabbit.Channel do
   alias AMQP.{Channel}
   require Logger
 
+  import WhiteRabbit.Core
+
   defstruct name: :default,
             connection: nil,
             counter_agent: nil
@@ -49,7 +51,7 @@ defmodule WhiteRabbit.Channel do
   @doc """
   Start an `%AMQP.Channel{}` process with the given config connection.
 
-  Calls the WhiteRabbit.Connection Genserver registerd under the connection atom to get the connection state and pid.
+  Calls the WhiteRabbit.Connection Genserver registered under the connection atom to get the connection state and pid.
 
   If succussful, will try to open a `%AMQP.Channel{}` on the connection and then register the channel to a supervised registry.
 
@@ -65,7 +67,7 @@ defmodule WhiteRabbit.Channel do
     # Get Genserver state and use connection
     # Then open a channel on the active connection
     with {%AMQP.Connection{} = active_conn, conn_config} <-
-           GenServer.call(connection, :get_connection_state),
+           GenServer.call(connection, :get_connection_state, :infinity),
          {:ok, %AMQP.Channel{} = channel} <- Channel.open(active_conn) do
       Logger.debug("Opened Channel: #{inspect(channel)}")
 
@@ -84,13 +86,5 @@ defmodule WhiteRabbit.Channel do
         Process.send_after(self(), :start_channel, 5000 + 1000 * backoff)
         {:ok, {nil, channel_config}}
     end
-  end
-
-  @doc """
-  Get backoff delay from linked agent.
-  """
-  @spec get_backoff(Agent.agent()) :: non_neg_integer()
-  def get_backoff(agent_pid) do
-    Agent.get_and_update(agent_pid, fn c -> {c, c * 2} end)
   end
 end

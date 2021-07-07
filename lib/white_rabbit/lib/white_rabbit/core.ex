@@ -106,13 +106,18 @@ defmodule WhiteRabbit.Core do
 
   Returns `{:ok, AMQP.Channel.t()}`
   """
-  @spec get_channel_from_pool(connection_name :: atom()) :: {:ok, AMQP.Channel.t()}
+  @spec get_channel_from_pool(connection_name :: atom()) ::
+          {:ok, AMQP.Channel.t()} | {:error, any()}
   def get_channel_from_pool(connection_name) when is_atom(connection_name) do
     channels = Registry.lookup(WhiteRabbit.ChannelRegistry, connection_name)
 
-    # return random channel from the pool for now, hopefully law of averages holds up
-    # {pid, channel} = Enum.random(channels)
-    {:ok, Enum.random(channels)}
+    if Enum.empty?(channels) do
+      {:error, :no_channels_registered}
+    else
+      # return random channel from the pool for now, hopefully law of averages holds up
+      # {pid, channel} = Enum.random(channels)
+      {:ok, Enum.random(channels)}
+    end
   end
 
   @spec test_publish(integer(), String.t(), String.t(), map(), Keyword.t()) :: [atom()]
@@ -179,5 +184,13 @@ defmodule WhiteRabbit.Core do
     bytes_count
     |> :crypto.strong_rand_bytes()
     |> Base.url_encode64(padding: false)
+  end
+
+  @doc """
+  Get backoff delay from linked agent.
+  """
+  @spec get_backoff(Agent.agent()) :: non_neg_integer()
+  def get_backoff(agent_pid) do
+    Agent.get_and_update(agent_pid, fn c -> {c, c * 2} end)
   end
 end
