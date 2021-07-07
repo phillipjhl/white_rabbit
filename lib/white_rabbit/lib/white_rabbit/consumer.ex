@@ -58,7 +58,7 @@ defmodule WhiteRabbit.Consumer do
   use GenServer, restart: :transient
   import WhiteRabbit.Core
 
-  alias AMQP.{Connection, Channel, Exchange, Queue, Basic}
+  alias AMQP.{Basic}
 
   alias WhiteRabbit.{Consumer}
 
@@ -115,9 +115,7 @@ defmodule WhiteRabbit.Consumer do
   @impl true
   def init(
         %Consumer{
-          connection_name: connection_name,
-          queue: queue,
-          processor: processor
+          connection_name: connection_name
         } = args
       ) do
     # Get Channel and Monitor
@@ -262,7 +260,7 @@ defmodule WhiteRabbit.Consumer do
 
   # Catch remaining continue commands
   @impl true
-  def handle_continue(continue, state) do
+  def handle_continue(_continue, state) do
     {:noreply, state}
   end
 
@@ -275,11 +273,11 @@ defmodule WhiteRabbit.Consumer do
 
   Sets the prefetch_count for the given connection as well.
   """
-  defp register_consumer(pid, active_channel, %Consumer{} = args) do
+  def register_consumer(pid, active_channel, %Consumer{} = args) do
     %Consumer{
       queue: queue,
       prefetch_count: prefetch_count,
-      name: name,
+      name: _name,
       uuid_name: uuid_name
     } = args
 
@@ -299,9 +297,7 @@ defmodule WhiteRabbit.Consumer do
   defp channel_monitor(%Consumer{} = args) do
     %Consumer{
       connection_name: connection_name,
-      channel_name: channel_name,
-      queue: queue,
-      prefetch_count: prefetch_count
+      channel_name: channel_name
     } = args
 
     case get_channel(channel_name, connection_name) do

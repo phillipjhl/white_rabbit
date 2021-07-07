@@ -138,7 +138,7 @@ defmodule WhiteRabbit.Core do
         content_type: "application/json"
       ] ++ options
 
-    for i <- 1..number do
+    for _i <- 1..number do
       WhiteRabbit.Producer.publish(:aggie_connection, exchange, routing_key, payload, all_options)
     end
   end

@@ -78,7 +78,7 @@ defmodule WhiteRabbit.Connection do
   end
 
   @impl true
-  def init(%__MODULE__{conn_opts: conn_opts} = opts) do
+  def init(%__MODULE__{conn_opts: _conn_opts} = opts) do
     start_amqp_connection(opts)
   end
 
@@ -97,7 +97,7 @@ defmodule WhiteRabbit.Connection do
   def handle_call(
         :get_connection_state,
         {_pid, _term},
-        {%AMQP.Connection{} = active_conn, config} = state
+        {%AMQP.Connection{} = _active_conn, _config} = state
       ) do
     # Reply with current state, which is {%AMQP.Connection{}, %WhiteRabbit.Connection{}}
     {:reply, state, state}

@@ -37,7 +37,7 @@ defmodule WhiteRabbit.Channel do
   end
 
   @impl true
-  def handle_info(:start_channel, {channel, config}) do
+  def handle_info(:start_channel, {_channel, config}) do
     # Start a channel under this process.
     case start_amqp_channel(config) do
       {:ok, {%AMQP.Channel{} = active_channel, config}} ->
@@ -66,7 +66,7 @@ defmodule WhiteRabbit.Channel do
   def start_amqp_channel(%__MODULE__{name: name, connection: connection} = channel_config) do
     # Get Genserver state and use connection
     # Then open a channel on the active connection
-    with {%AMQP.Connection{} = active_conn, conn_config} <-
+    with {%AMQP.Connection{} = active_conn, _conn_config} <-
            GenServer.call(connection, :get_connection_state, :infinity),
          {:ok, %AMQP.Channel{} = channel} <- Channel.open(active_conn) do
       Logger.debug("Opened Channel: #{inspect(channel)}")
