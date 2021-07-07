@@ -30,7 +30,12 @@ defmodule WhiteRabbit do
   """
   @callback get_rpc_config() :: WhiteRabbit.RPC.Config.t()
 
-  @optional_callbacks get_rpc_config: 0
+  @doc """
+  Returns a list of tuples defining `WhiteRabbit.Consumer` GenServers to be started on app startup.
+  """
+  @callback get_startup_consumers() :: [{any(), WhiteRabbit.Consumer.t()}]
+
+  @optional_callbacks get_rpc_config: 0, get_startup_consumers: 0
 
   @doc """
   Start the WhiteRabbit.

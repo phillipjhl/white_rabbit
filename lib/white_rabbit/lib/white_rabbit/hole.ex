@@ -11,7 +11,11 @@ defmodule WhiteRabbit.Hole do
 
   alias WhiteRabbit.{PoolSupervisor, Connection, Fluffle, RPC, Core}
 
-  @type hole_option :: {:name, term()} | {:children, list()} | {:connections, [Connection.t()]}
+  @type hole_option ::
+          {:name, term()}
+          | {:children, list()}
+          | {:connections, [Connection.t()]}
+          | {:startup_consumers, [{term(), Consumer.t()}]}
   @type hole_args :: [hole_option()]
 
   def start_link({module, opts}) do
@@ -26,6 +30,7 @@ defmodule WhiteRabbit.Hole do
     additional_children = Keyword.get(arg, :children, [])
     additional_connections = Keyword.get(arg, :connections, [])
     rpc_enabled = Keyword.get(arg, :rpc_enabled, false)
+    startup_consumers = Keyword.get(arg, :startup_consumers, [])
 
     connections =
       [
@@ -58,7 +63,7 @@ defmodule WhiteRabbit.Hole do
         {PoolSupervisor, [connections: connections]},
 
         # WhiteRabbit consumer/producer super -> dynamic supers
-        {Fluffle, []}
+        {Fluffle, [startup_consumers: startup_consumers]}
       ] ++ additional_children ++ [configure_rpc_topology(rpc_enabled, arg)]
 
     Logger.info("Starting the #{name} Hole")

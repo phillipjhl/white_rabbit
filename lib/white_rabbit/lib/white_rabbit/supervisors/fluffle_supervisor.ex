@@ -10,33 +10,30 @@ defmodule WhiteRabbit.Fluffle do
   use Supervisor
   require Logger
 
+  @type fluffle_option :: {:startup_consumers, {term(), WhiteRabbit.Consumer.t()}}
+  @type fluffle_options :: [fluffle_option]
+
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @impl true
   def init(opts) do
-    children = [
-      # Registry for dynamically created consumers/producers
-      {Registry, keys: :unique, name: FluffleRegistry},
+    startup_consumers = Keyword.get(opts, :startup_consumers, [])
 
-      # DynamicSupervisor for consumers
-      {DynamicSupervisor,
-       [name: WhiteRabbit.Fluffle.DynamicSupervisor.Consumer, strategy: :one_for_one]},
+    children =
+      [
+        # Registry for dynamically created consumers/producers
+        {Registry, keys: :unique, name: FluffleRegistry},
 
-      # DynamicSupervisor for producers
-      {DynamicSupervisor,
-       [name: WhiteRabbit.Fluffle.DynamicSupervisor.Producer, strategy: :one_for_one]}
+        # DynamicSupervisor for consumers
+        {DynamicSupervisor,
+         [name: WhiteRabbit.Fluffle.DynamicSupervisor.Consumer, strategy: :one_for_one]},
 
-      #  Start Up Test Consumer
-      # {WhiteRabbit.Consumer,
-      #  %WhiteRabbit.Consumer{
-      #    name: :JsonConsumer,
-      #    exchange: "json_test_exchange",
-      #    queue: "json_test_queue",
-      #    processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
-      #  }}
-    ]
+        # DynamicSupervisor for producers
+        {DynamicSupervisor,
+         [name: WhiteRabbit.Fluffle.DynamicSupervisor.Producer, strategy: :one_for_one]}
+      ] ++ startup_consumers
 
     Supervisor.init(children, strategy: :one_for_one)
   end
