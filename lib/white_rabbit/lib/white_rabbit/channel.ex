@@ -1,6 +1,8 @@
 defmodule WhiteRabbit.Channel do
   @moduledoc """
-  WhiteRabbit channel GenServer. Starts an `%AMQP.Channel{}` process with the given `WhiteRabbit.Connection` GenServer and
+  WhiteRabbit AMQP channel GenServer.
+
+  Starts an `%AMQP.Channel{}` process with the given `WhiteRabbit.Connection` GenServer and
   registers it to a `WhiteRabbit.ChannelRegistry` to allow other process to grab open amqp channels from the registry and use them.
 
   Backoff on failed channel open. Tries to re-open parent connection and open channel again.
@@ -11,14 +13,14 @@ defmodule WhiteRabbit.Channel do
   alias AMQP.{Channel}
   require Logger
 
-  import WhiteRabbit.Core
+  import WhiteRabbit.Core, only: [get_backoff: 1]
 
   defstruct name: :default,
             connection: nil,
             counter_agent: nil
 
   @typedoc """
-    `%WhiteRabbit.Channel{}` struct that defines the nessecary config for creating channel GenServers.`
+    `%WhiteRabbit.Channel{}` struct that defines the nessecary config for creating channel GenServers.
   """
   @type t :: %__MODULE__{name: atom(), connection: atom(), counter_agent: pid()}
 

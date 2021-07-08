@@ -1,6 +1,6 @@
 defmodule WhiteRabbit.Processor do
   @moduledoc """
-  Processor behavior that modules can use to implememnt common callbacks.
+  Processor behavior that modules can use to implememnt common callbacks to consume message payloads.
 
   To use:
 

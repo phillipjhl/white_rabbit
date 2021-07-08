@@ -1,14 +1,19 @@
 defmodule WhiteRabbit.ChannelSupervisor do
   @moduledoc """
-  Supervisor of multiple AMQP Channels
+  Supervisor of multiple AMQP Channels.
+
+  Each child is a `WhiteRabbit.Channel` GenServer started with a `:one_for_one` strategy.
+
+  This Supervisor should be started under a `WhiteRabbit.PoolSupervisor` that also supervises one `WhiteRabbit.Connection` that will be
+  used for all the children channels in the amqp connection pool.
 
   Channel Pool layout:
 
+  ```
        ChannelSupervisor
         /      |      \
-       /       |       \
   Channel   Channel   Channel
-
+  ```
   """
 
   use Supervisor

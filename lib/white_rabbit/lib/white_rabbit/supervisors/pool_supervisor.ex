@@ -1,6 +1,10 @@
 defmodule WhiteRabbit.PoolSupervisor do
   @moduledoc """
   Supervisor of multiple `WhiteRabbit.ChannelsAndConnSupervisor`.
+
+  The strategy is set to `:one_for_one` so each `WhiteRabbit.ChannelsAndConnSupervisor` can handle its own connection and channels.
+
+  This Supervisor allows for decouling of each connection and their respective channels from the rest of the topology.
   """
 
   use Supervisor

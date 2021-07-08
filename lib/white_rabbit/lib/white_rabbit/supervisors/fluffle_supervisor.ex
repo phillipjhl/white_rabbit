@@ -4,6 +4,9 @@ defmodule WhiteRabbit.Fluffle do
 
   Uses a Registry to handle tracking of all the dynamically spawned child processes under this Supervisor.
 
+  Pass a `startup_consumers: []` option to `start_link` to allow for start-up Consumers instead of being supervised by
+  one of the DynamicSupervisors.
+
   FUN FACT: Did you a group of rabbits is called a fluffle? Neither did I.
   """
 
@@ -38,7 +41,10 @@ defmodule WhiteRabbit.Fluffle do
     Supervisor.init(children, strategy: :one_for_one)
   end
 
+  @doc """
+  Uses `DynamicSupervisor.which_children()` to output list of childrend on the `WhiteRabbit.Fluffle` Supervisor.
+  """
   def get_current_children do
-    DynamicSupervisor.which_children(WhiteRabbit.Fluffle.DynamicSupervisor.Consumer)
+    DynamicSupervisor.which_children(WhiteRabbit.Fluffle)
   end
 end

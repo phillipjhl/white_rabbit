@@ -2,6 +2,13 @@
 
 RabbitMQ Elixir library to handle all consuming, producing, and exchanging of RabbitMQ messages.
 
+Features:
+
+- RPC call architecture between apps.
+- Auto recovery and resarts of connections and their channels, and the consumers using them
+- Startup and Runtime support for Consumer GenServer processes
+- Telemetry event emission on publishes, acks, and rejects
+
 # Implementing
 
 ## Add To Dependencies
@@ -14,7 +21,7 @@ RabbitMQ Elixir library to handle all consuming, producing, and exchanging of Ra
   end
 ```
 
-## Use As A Behavior:
+## Use As A Behavior
 
 ```elixir
 # In MyApp
@@ -45,7 +52,7 @@ Supervisor.start_link(children, opts)
 
 `WhiteRabbit.Processor` Behaviour is used to define how a `WhiteRabbit.Consumer` Genserver will process the messages that it receives once it is registered to a RabbitMQ queue.
 
-The `consume_payload/2` callback is called immediately after a message is received. It should return a `{:ok, any()}` tuple of a `WhiteRabbit.Processor.consume_error()` so the Consumer can properly send an acknowledgemnet or reject for the message so RabbitMQ broker can handle it.
+The `consume_payload/2` callback is called immediately after a message is received. It should return a `{:ok, AMQP.Basic.delivery_tag()}` tuple if successful or a `{:error, {AMQP.Basic.delivery_tag(), Keyword.t()}}` if not successful so the Consumer can properly send an 'ack' or 'reject' for the message and then let RabbitMQ broker can handle it appropriately (requeue, send to dead-letter-queue, etc.)
 
 See `WhiteRabbit.Processor` for more on the behaviour used.
 
@@ -72,13 +79,13 @@ defmodule Aggie.TestJsonProcessor do
         {:ok, tag}
 
       _ ->
-        # Requeue unless it's a redelivered message.
-        # This means we will retry consuming a message once in case of exception
-        # before we give up and have it moved to the error queue
         {:error, {tag, [requeue: false]}}
     end
   rescue
     exception ->
+      # Requeue unless it's a redelivered message.
+      # This means we will retry consuming a message once in case of exception
+      # before we give up and have it moved to the error queue
       Logger.warn("Error consuming message: #{tag} #{inspect(exception)}")
       {:error, {tag, [requeue: not redelivered]}}
   end
@@ -181,24 +188,25 @@ defmodule Aggie.WhiteRabbit do
     }
   end
 
+  # Set optional Consumer process to start consuming at app start-up
   @impl true
   def get_startup_consumers do
     [
-{WhiteRabbit.Consumer, %WhiteRabbit.Consumer{
-      connection_name: :aggie_connection,
-      name: "Aggie.JsonConsumer",
-      exchange: "json_test_exchange",
-      queue: "json_test_queue",
-      processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor},
-      prefetch_count: 50
+      {WhiteRabbit.Consumer, %WhiteRabbit.Consumer{
+          connection_name: :aggie_connection,
+          name: "Aggie.JsonConsumer",
+          exchange: "json_test_exchange",
+          queue: "json_test_queue",
+          processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+        }
       }
-    }
     ]
   end
 
   def start_link(_opts) do
     rpc_enabled = if Mix.env() !== :test, do: true, else: false
 
+    # Start the WhiteRabbit Hole
     WhiteRabbit.start_link(__MODULE__,
       name: __MODULE__,
       connections: connections(),
@@ -233,8 +241,8 @@ jeopardy_config = %WhiteRabbit.Consumer{
   processor: %WhiteRabbit.Processor.Config{module: Jeopardy.TestJsonProcessor}
 }
 
-WhiteRabbit.Consumer.test_start_dynamic_consumers(aggie_config, 3)
-WhiteRabbit.Consumer.test_start_dynamic_consumers(jeopardy_config, 3)
+WhiteRabbit.Core.start_dynamic_consumers(aggie_config, 3)
+WhiteRabbit.Core.start_dynamic_consumers(jeopardy_config, 3)
 ```
 
 ### Publish With Producer Module
@@ -254,6 +262,24 @@ WhiteRabbit.Core.test_publish(100, "jeopardy_json_test_exchange", "test_json", %
 ### RPC Calls
 
 See `WhiteRabbit.RPC` for more information on RPC calls and message handling.
+
+Using the RPC config shown above, a process can call the function `WhiteRabbit.RPC.call/2` to make an RPC call to the service and get a response back from the server and have it map back correctly to the calling process.
+
+Example:
+
+```elixir
+iex> WhiteRabbit.RPC.call("aggie", {Aggie.Utils, :get_versions, []})
+{:ok,
+ [
+   %{"name" => "aggie", "version" => "3.5.0"},
+   %{"name" => "excheetah", "version" => "2.2.0"},
+   %{"name" => "bartleby", "version" => "2.6.0"}, 
+   %{"name" => "jeopardy", "version" => "1.3.0"},
+   %{"name" => "mice", "version" => "2.5.0"},
+   %{"name" => "blackhawk", "version" => "0.1.0"},
+   %{"name" => "alegeus", "version" => "1.0.2"}
+ ]}
+```
 
 # To Generate ExDocs
 

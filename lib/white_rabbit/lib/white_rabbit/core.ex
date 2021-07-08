@@ -1,6 +1,6 @@
 defmodule WhiteRabbit.Core do
   @moduledoc """
-  Contains helper functions.
+  Contains helper and util functions for the entire `WhiteRabbit` library.
   """
 
   alias WhiteRabbit.Consumer.State

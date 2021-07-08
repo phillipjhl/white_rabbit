@@ -1,13 +1,13 @@
 defmodule WhiteRabbit.Consumer do
   @moduledoc """
-  AMQP Consumer Genserver that will handle connecting to a channel using a configured connection and then declare an
+  Consumer GenServer that will handle connecting to a channel using a configured connection and then declare an
   exchange and queue to handle messages from a RabbitMQ broker server.
 
   This module should only be concerned about establishing channels and registering itself as a consumer.
 
   Actual processing of incoming messages are handled externally through configerd processors. See `WhiteRabbit.Processor` behavior.
 
-  ## Start under a supervisor:
+  ## Start under a supervisor with child_spec:
 
   ```
   children = [
@@ -38,17 +38,11 @@ defmodule WhiteRabbit.Consumer do
       name: "Aggie.JsonConsumer",
       exchange: "json_test_exchange",
       queue: "json_test_queue",
-      processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor},
-      prefetch_count: 50
+      processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
       }
     }
   )
   ```
-
-  for i <- 1..100 do
-  IO.puts(i)
-  AMQP.Basic.publish(%AMQP.Channel{conn: %AMQP.Connection{pid: #PID<0.1325.0>}, custom_consumer: {AMQP.SelectiveConsumer, #PID<0.1339.0>}, pid: #PID<0.1343.0>}, "json_test_exchange", "", Jason.encode!(%{test: "hello"}))
-  end
 
   #### To Do:
   Maybe even include a handle_info function that can dynamically spawn more workers on demand by a specific message payload.
@@ -189,8 +183,23 @@ defmodule WhiteRabbit.Consumer do
       apply(processor_module, processor_function, [channel, payload, meta])
     else
       case processor_module.consume_payload(payload, meta) do
-        {:ok, tag} -> Basic.ack(channel, tag)
-        {:error, {tag, opts}} -> Basic.reject(channel, tag, opts)
+        {:ok, tag} ->
+          :telemetry.execute(
+            [:white_rabbit, :ack],
+            %{count: 1, duration: :os.system_time() - meta.timestamp},
+            meta
+          )
+
+          Basic.ack(channel, tag)
+
+        {:error, {tag, opts}} ->
+          :telemetry.execute(
+            [:white_rabbit, :reject],
+            %{count: 1, duration: :os.system_time() - meta.timestamp},
+            meta
+          )
+
+          Basic.reject(channel, tag, opts)
       end
     end
 
@@ -343,27 +352,22 @@ defmodule WhiteRabbit.Consumer do
     {:ok, state}
   end
 
-  def test_start_dynamic_consumers(config, concurrency)
-      when is_integer(concurrency) and is_map(config) do
-    %WhiteRabbit.Consumer{
-      connection_name: connection_name,
-      name: name,
-      exchange: exchange,
-      queue: queue,
-      processor: processor
-    } = config
+  @doc """
+  Start a number of Consumer with the given config.
 
+  Pass a `WhiteRabbit.Consumer{}` to start it under a DynamicSupervisor.
+
+  Optionally pass an integer as the second argument to start any number of Consumers with the same config.
+  """
+  @spec start_dynamic_consumers(config :: Consumer.t(), concurrency :: integer()) :: [
+          tuple()
+        ]
+  def start_dynamic_consumers(%Consumer{} = config, concurrency \\ 1)
+      when is_integer(concurrency) and is_map(config) do
     for i <- 1..concurrency do
       DynamicSupervisor.start_child(
         WhiteRabbit.Fluffle.DynamicSupervisor.Consumer,
-        {WhiteRabbit.Consumer,
-         %WhiteRabbit.Consumer{
-           connection_name: connection_name,
-           name: "#{name}:#{i}",
-           exchange: exchange,
-           queue: queue,
-           processor: processor
-         }}
+        {WhiteRabbit.Consumer, config}
       )
     end
   end

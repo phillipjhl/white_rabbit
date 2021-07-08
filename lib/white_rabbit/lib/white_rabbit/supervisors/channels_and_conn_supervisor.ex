@@ -2,7 +2,7 @@ defmodule WhiteRabbit.ChannelsAndConnSupervisor do
   @moduledoc """
   Supervisor of 1 `WhiteRabbit.Connection` and 1 `WhiteRabbit.ChannelSupervisor`
 
-  Has startegy :rest_for_one so if the `WhiteRabbit.Connection` dies, the connection will be restarted along with all the channels associated with the `WhiteRabbit.ChannelSupervisor`.
+  Has startegy `:rest_for_one` so if the `WhiteRabbit.Connection` dies, the connection will be restarted along with all the channels associated with the `WhiteRabbit.ChannelSupervisor`.
 
   If only one channel dies, this supervisor doesn't care as that's the job of the `WhiteRabbit.ChannelSupervisor`.
 

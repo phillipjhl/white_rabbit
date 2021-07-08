@@ -1,6 +1,6 @@
 defmodule WhiteRabbit.Connection do
   @moduledoc """
-  Genserver to open a `%AMQP.Connection{}` and monitors it to allow for :stop events and restarts from Supervisor.
+  GenServer to open a `%AMQP.Connection{}` and monitors it to allow for `:stop` events and restarts from Supervisor.
   """
 
   use GenServer
@@ -66,6 +66,14 @@ defmodule WhiteRabbit.Connection do
       used as connection identifiers (default `:undefined`)
   """
   @type conn_opt :: {:url, String.t()} | {:options, keyword()}
+  @typedoc """
+  Keyword list of `conn_opt()` types. Provided to `WhiteRabbit.Connection` struct.
+
+  Example
+  ```
+  [conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"]]
+  ```
+  """
   @type conn_opts :: [conn_opt()]
 
   @typedoc """

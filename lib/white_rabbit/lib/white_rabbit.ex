@@ -27,18 +27,94 @@ defmodule WhiteRabbit do
 
   @doc """
   Returns a map of a rpc_config to configure the correct rpc queues and consumers.
+
+  Example
+  ```elixir
+
+  # Use callback spec to return %WhiteRabbit.RPC.Config{} struct
+  @impl true
+  def get_rpc_config do
+    reply_id = Core.uuid_tag()
+
+    %WhiteRabbit.RPC.Config{
+      service_consumer: %WhiteRabbit.Consumer{
+        connection_name: :aggie_rpc_connection,
+        name: "Aggie.RPC.Receiver",
+        exchange: "suzerain.rpcs.exchange",
+        queue: "aggie.rpcs",
+        queue_opts: [auto_delete: true],
+        binding_keys: ["aggie.rpcs"],
+        error_queue: false,
+        processor: %WhiteRabbit.Processor.Config{
+          module: WhiteRabbit.RPC,
+          function: :handle_rpc_message!
+        }
+      },
+      replies_consumer: %WhiteRabbit.Consumer{
+        connection_name: :aggie_rpc_connection,
+        name: "Aggie.RPC.Replies",
+        exchange: "amq.direct",
+        exchange_type: :direct,
+        queue: "aggie.rpcs.replies.\#{reply_id}",
+        queue_opts: [auto_delete: true, durable: false, exclusive: true],
+        binding_keys: ["\#{reply_id}"],
+        error_queue: false,
+        processor: %WhiteRabbit.Processor.Config{
+          module: WhiteRabbit.RPC,
+          function: :return_rpc_message!
+        }
+      },
+      service_name: "aggie",
+      reply_id: reply_id
+    }
+  end
+  ```
   """
   @callback get_rpc_config() :: WhiteRabbit.RPC.Config.t()
 
   @doc """
   Returns a list of tuples defining `WhiteRabbit.Consumer` GenServers to be started on app startup.
+
+  Example
+  ```elixir
+    def connections do
+    [
+      %Connection{
+        connection_name: :aggie_connection,
+        conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
+        channels: [
+          %{
+            name: :aggie_consumer_channel
+          },
+          %{
+            name: :aggie_producer_channel
+          }
+        ]
+      },
+      %Connection{
+        connection_name: :aggie_rpc_connection,
+        conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
+        channels: [
+          %{
+            name: :aggie_rpc_consumer_channel_1
+          },
+          %{
+            name: :aggie_rpc_consumer_channel_2
+          }
+        ]
+      }
+    ]
+  end
+  ```
   """
   @callback get_startup_consumers() :: [{any(), WhiteRabbit.Consumer.t()}]
 
   @optional_callbacks get_rpc_config: 0, get_startup_consumers: 0
 
   @doc """
-  Start the WhiteRabbit.
+  Start the WhiteRabbit Hole.
+
+  Calls `WhiteRabbit.Hole.start_link` to start the supervision topology defined.
   """
   # @spec start_link(module(), keyword()) :: on_start()
   def start_link(module, opts) do
