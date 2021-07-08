@@ -28,6 +28,7 @@ defmodule WhiteRabbit.Hole do
     additional_children = Keyword.get(arg, :children, [])
     additional_connections = Keyword.get(arg, :connections, [])
     rpc_enabled = Keyword.get(arg, :rpc_enabled, false)
+    rpc_config = Keyword.get(arg, :rpc_config, nil)
     startup_consumers = Keyword.get(arg, :startup_consumers, [])
 
     connections =
@@ -52,6 +53,10 @@ defmodule WhiteRabbit.Hole do
         }
       ] ++ additional_connections
 
+    # Determine RPC config topology children
+    rpc_children =
+      if rpc_enabled && rpc_config !== nil, do: [configure_rpc_topology(rpc_config)], else: []
+
     children =
       [
         # AMQP Channel Process Registry, channels are registered under connection_name atoms
@@ -62,51 +67,46 @@ defmodule WhiteRabbit.Hole do
 
         # WhiteRabbit consumer/producer super -> dynamic supers
         {Fluffle, [startup_consumers: startup_consumers]}
-      ] ++ additional_children ++ [configure_rpc_topology(rpc_enabled, arg)]
+      ] ++ rpc_children ++ additional_children
 
     Logger.info("Starting the #{name} Hole")
 
     Supervisor.init(children, strategy: :rest_for_one)
   end
 
-  def configure_rpc_topology(enabled, arg) do
-    if enabled do
-      # Get config or use default
-      rpc_config = Keyword.get(arg, :rpc_config, %{})
+  def configure_rpc_topology(%WhiteRabbit.RPC.Config{} = config) do
+    %{
+      service_consumer: service_consumer,
+      replies_consumer: replies_consumer,
+      service_name: service_name,
+      reply_id: reply_id
+    } = config
 
+    rpc_children = [
+      # RPC ETS Table
+      {WhiteRabbit.RPC.ProcessStore, [reply_id: reply_id, service_name: service_name]},
+
+      # RPC Requests Registry
+      {Registry, [name: RPCRequestRegistry, keys: :unique]},
+
+      # RPC Service Consumer
       %{
-        service_consumer: service_consumer,
-        replies_consumer: replies_consumer,
-        service_name: service_name,
-        reply_id: reply_id
-      } = rpc_config
+        id: service_consumer.name,
+        start: {WhiteRabbit.Consumer, :start_link, [service_consumer]}
+      },
 
-      rpc_children = [
-        # RPC ETS Table
-        {WhiteRabbit.RPC.ProcessStore, [reply_id: reply_id, service_name: service_name]},
-
-        # RPC Requests Registry
-        {Registry, [name: RPCRequestRegistry, keys: :unique]},
-
-        # RPC Service Consumer
-        %{
-          id: service_consumer.name,
-          start: {WhiteRabbit.Consumer, :start_link, [service_consumer]}
-        },
-
-        # RPC Replies Consumer
-        %{
-          id: replies_consumer.name,
-          start: {WhiteRabbit.Consumer, :start_link, [replies_consumer]}
-        }
-      ]
-
-      # Supervisor Map
+      # RPC Replies Consumer
       %{
-        id: WhiteRabbit.RPC.Supervisor,
-        start: {Supervisor, :start_link, [rpc_children, [strategy: :rest_for_one]]},
-        type: :supervisor
+        id: replies_consumer.name,
+        start: {WhiteRabbit.Consumer, :start_link, [replies_consumer]}
       }
-    end
+    ]
+
+    # Supervisor Map
+    %{
+      id: WhiteRabbit.RPC.Supervisor,
+      start: {Supervisor, :start_link, [rpc_children, [strategy: :rest_for_one]]},
+      type: :supervisor
+    }
   end
 end
