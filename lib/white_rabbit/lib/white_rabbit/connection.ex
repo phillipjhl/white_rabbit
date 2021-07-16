@@ -147,16 +147,16 @@ defmodule WhiteRabbit.Connection do
           | {:ok, {nil, __MODULE__.t()}}
   def start_amqp_connection(%__MODULE__{conn_opts: conn_opts} = opts) do
     amqp_url = Keyword.get(conn_opts, :url, nil)
-    options = Keyword.get(conn_opts, :options, nil)
+    options = Keyword.get(conn_opts, :options, [])
 
-    # If there are options use that, else use url string
-    conn = if options, do: options, else: amqp_url
+    conn_name = Keyword.get(options, :name, Atom.to_string(opts.connection_name))
+    options = Keyword.put(options, :name, conn_name)
 
-    case Connection.open(conn) do
+    case Connection.open(amqp_url, options) do
       {:ok, %AMQP.Connection{pid: pid} = active_conn} ->
         # put conn in state
         Process.monitor(pid)
-        Logger.info("Connected amqp connection with: #{inspect(conn)}")
+        Logger.info("Connected amqp connection with: #{inspect(amqp_url)} name: #{conn_name}")
 
         {:ok, {active_conn, opts}}
 
