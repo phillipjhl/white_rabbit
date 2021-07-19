@@ -16,6 +16,36 @@ defmodule WhiteRabbit do
         Supervisor.child_spec(default, unquote(Macro.escape(opts)))
       end
 
+      @doc """
+      Returns a map of the full supervisor tree and their children of the given supervisor.
+
+      Uses `Supervisor.which_children/1` recursively.
+      """
+      @spec get_full_topology(supervisor :: term()) :: map()
+      def get_full_topology(supervisor \\ __MODULE__) do
+        parent = Supervisor.which_children(supervisor)
+
+        if !Enum.empty?(parent) do
+          children_map =
+            Enum.group_by(
+              parent,
+              fn elem ->
+                {id, _, _, _} = elem
+                id
+              end,
+              fn elem ->
+                {_name, child_pid, type, _module} = elem
+
+                if type === :supervisor do
+                  get_full_topology(child_pid)
+                else
+                  elem
+                end
+              end
+            )
+        end
+      end
+
       defoverridable child_spec: 1
     end
   end

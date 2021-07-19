@@ -9,6 +9,11 @@ Features:
 - Startup and Runtime support for Consumer GenServer processes
 - Telemetry event emission on publishes, acks, and rejects
 
+V1 Topology
+---
+
+![Topology Flow](assets/WhiteRabbit_Topology.svg)
+
 # Implementing
 
 ## Add To Dependencies
@@ -307,6 +312,6 @@ $ mix docs
   Kill/Spawn new processer module to keep a constant time performance level
   ```
 
-- [ ] Telemetry event emission
+- [ X ] Telemetry event emission
   - [ X ] publish events
-  - [ ] consume events
+  - [ X ] consume events
