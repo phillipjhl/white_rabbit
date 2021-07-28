@@ -16,6 +16,10 @@ defmodule WhiteRabbit do
         Supervisor.child_spec(default, unquote(Macro.escape(opts)))
       end
 
+      def process_name(name, prefix \\ unquote(module)) do
+        :"#{prefix}.#{name}"
+      end
+
       @doc """
       Returns a map of the full supervisor tree and their children of the given supervisor.
 
@@ -46,6 +50,42 @@ defmodule WhiteRabbit do
         end
       end
 
+      @doc """
+      Make an rpc call to a service with the given mfa tuple
+
+      Example:
+
+      ```
+        MyApp.WhiteRabbit.rpc_call(:other_rpc_enabled_service, {OtherApp.Utils, :get_versions, []})
+      ```
+      """
+      @spec rpc_call(atom(), {module(), atom(), []}, Keyword.t()) ::
+              {:ok, term()} | {:error, term()}
+      def rpc_call(service, mfa, opts \\ []) do
+        WhiteRabbit.RPC.call(unquote(module), service, mfa, opts)
+      end
+
+      @doc """
+      Start a number of Consumer with the given config.
+
+      Pass a `WhiteRabbit.Consumer{}` to start it under an apps's `WhiteRabbit.Fluffle` DynamicSupervisor.
+
+      Optionally pass an integer as the second argument to start any number of Consumers with the same config.
+
+      Optionally pass a module of the owning `WhiteRabbit` module. e.g. Aggie.WhiteRabbit
+      - Defaults to this module.
+      """
+      @spec start_dynamic_consumers(
+              config :: Consumer.t(),
+              concurrency :: integer(),
+              owner_module :: module()
+            ) :: [
+              tuple()
+            ]
+      def start_dynamic_consumers(config, concurreny \\ 1, module \\ unquote(module)) do
+        WhiteRabbit.Consumer.start_dynamic_consumers(config, concurreny, module)
+      end
+
       defoverridable child_spec: 1
     end
   end
@@ -64,38 +104,9 @@ defmodule WhiteRabbit do
   # Use callback spec to return %WhiteRabbit.RPC.Config{} struct
   @impl true
   def get_rpc_config do
-    reply_id = Core.uuid_tag()
-
     %WhiteRabbit.RPC.Config{
-      service_consumer: %WhiteRabbit.Consumer{
-        connection_name: :aggie_rpc_connection,
-        name: "Aggie.RPC.Receiver",
-        exchange: "suzerain.rpcs.exchange",
-        queue: "aggie.rpcs",
-        queue_opts: [auto_delete: true],
-        binding_keys: ["aggie.rpcs"],
-        error_queue: false,
-        processor: %WhiteRabbit.Processor.Config{
-          module: WhiteRabbit.RPC,
-          function: :handle_rpc_message!
-        }
-      },
-      replies_consumer: %WhiteRabbit.Consumer{
-        connection_name: :aggie_rpc_connection,
-        name: "Aggie.RPC.Replies",
-        exchange: "amq.direct",
-        exchange_type: :direct,
-        queue: "aggie.rpcs.replies.\#{reply_id}",
-        queue_opts: [auto_delete: true, durable: false, exclusive: true],
-        binding_keys: ["\#{reply_id}"],
-        error_queue: false,
-        processor: %WhiteRabbit.Processor.Config{
-          module: WhiteRabbit.RPC,
-          function: :return_rpc_message!
-        }
-      },
       service_name: "aggie",
-      reply_id: reply_id
+      connection_name: :aggie_rpc_connection
     }
   end
   ```
@@ -107,7 +118,30 @@ defmodule WhiteRabbit do
 
   Example
   ```elixir
-    def connections do
+  @impl true
+  def get_startup_consumers do
+    [
+      {WhiteRabbit.Consumer,
+       %WhiteRabbit.Consumer{
+         connection_name: :aggie_connection,
+         name: "Aggie.JsonConsumer",
+         exchange: "json_test_exchange",
+         queue: "json_test_queue",
+         processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+       }}
+    ]
+  end
+  ```
+  """
+  @callback get_startup_consumers() :: [{any(), WhiteRabbit.Consumer.t()}]
+
+  @doc """
+  Returns a list of connections to start.any()
+
+  Example:
+
+  ```elixir
+  def get_connections do
     [
       %Connection{
         connection_name: :aggie_connection,
@@ -137,7 +171,17 @@ defmodule WhiteRabbit do
   end
   ```
   """
-  @callback get_startup_consumers() :: [{any(), WhiteRabbit.Consumer.t()}]
+  @callback get_connections() :: [WhiteRabbit.Connection.t()]
+
+  @callback process_name(String.t(), module()) :: atom()
+  def process_name(name, prefix \\ __MODULE__) do
+    :"#{prefix}.#{name}"
+  end
+
+  @callback start_dynamic_consumers(map(), integer) :: [{:ok, pid()}]
+  def start_dynamic_consumers(config, concurreny \\ 1, module \\ __MODULE__) do
+    WhiteRabbit.Consumer.start_dynamic_consumers(config, concurreny, module)
+  end
 
   @optional_callbacks get_rpc_config: 0, get_startup_consumers: 0
 

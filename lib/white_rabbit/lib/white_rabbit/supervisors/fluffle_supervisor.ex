@@ -17,25 +17,29 @@ defmodule WhiteRabbit.Fluffle do
   @type fluffle_options :: [fluffle_option]
 
   def start_link(opts) do
-    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+    name = Keyword.get(opts, :name, __MODULE__)
+    Supervisor.start_link(__MODULE__, opts, name: name)
   end
 
   @impl true
   def init(opts) do
     startup_consumers = Keyword.get(opts, :startup_consumers, [])
+    module = Keyword.get(opts, :module, WhiteRabbit)
+    registry_name = Keyword.get(opts, :registry_name, WhiteRabbit.Fluffle.FluffleRegistry)
+
+    consumer_supervisor_name = module.process_name("Fluffle.DynamicSupervisor.Consumer")
+    producer_supervisor_name = module.process_name("Fluffle.DynamicSupervisor.Producer")
 
     children =
       [
         # Registry for dynamically created consumers/producers
-        {Registry, keys: :unique, name: FluffleRegistry},
+        {Registry, keys: :unique, name: registry_name},
 
         # DynamicSupervisor for consumers
-        {DynamicSupervisor,
-         [name: WhiteRabbit.Fluffle.DynamicSupervisor.Consumer, strategy: :one_for_one]},
+        {DynamicSupervisor, [name: consumer_supervisor_name, strategy: :one_for_one]},
 
         # DynamicSupervisor for producers
-        {DynamicSupervisor,
-         [name: WhiteRabbit.Fluffle.DynamicSupervisor.Producer, strategy: :one_for_one]}
+        {DynamicSupervisor, [name: producer_supervisor_name, strategy: :one_for_one]}
       ] ++ startup_consumers
 
     Supervisor.init(children, strategy: :one_for_one)
@@ -44,7 +48,7 @@ defmodule WhiteRabbit.Fluffle do
   @doc """
   Uses `DynamicSupervisor.which_children()` to output list of childrend on the `WhiteRabbit.Fluffle` Supervisor.
   """
-  def get_current_children do
-    DynamicSupervisor.which_children(WhiteRabbit.Fluffle)
+  def get_current_children(module) do
+    DynamicSupervisor.which_children(module)
   end
 end

@@ -106,10 +106,11 @@ defmodule WhiteRabbit.Core do
 
   Returns `{:ok, AMQP.Channel.t()}`
   """
-  @spec get_channel_from_pool(connection_name :: atom()) ::
+  @spec get_channel_from_pool(connection_name :: atom(), registry :: atom()) ::
           {:ok, AMQP.Channel.t()} | {:error, any()}
-  def get_channel_from_pool(connection_name) when is_atom(connection_name) do
-    channels = Registry.lookup(WhiteRabbit.ChannelRegistry, connection_name)
+  def get_channel_from_pool(connection_name, registry)
+      when is_atom(connection_name) and is_atom(registry) do
+    channels = Registry.lookup(registry, connection_name)
 
     if Enum.empty?(channels) do
       {:error, :no_channels_registered}

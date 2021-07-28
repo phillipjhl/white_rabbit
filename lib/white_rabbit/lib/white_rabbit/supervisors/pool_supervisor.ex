@@ -13,17 +13,20 @@ defmodule WhiteRabbit.PoolSupervisor do
   alias WhiteRabbit.{ChannelsAndConnSupervisor}
 
   def start_link(opts) do
-    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+    name = Keyword.get(opts, :name, __MODULE__)
+    Supervisor.start_link(__MODULE__, opts, name: name)
   end
 
   @impl true
   def init(opts) do
     connections = Keyword.get(opts, :connections, [])
+    name = Keyword.get(opts, :name, __MODULE__)
+    module = Keyword.get(opts, :module, WhiteRabbit)
 
     children =
       Enum.map(connections, fn conn ->
-        Supervisor.child_spec({ChannelsAndConnSupervisor, conn},
-          id: "WhiteRabbit.ChannelsAndConnSupervisor:#{conn.connection_name}"
+        Supervisor.child_spec({ChannelsAndConnSupervisor, [module: module, connection: conn]},
+          id: "#{name}.ChannelsAndConnSupervisor:#{conn.connection_name}"
         )
       end)
 

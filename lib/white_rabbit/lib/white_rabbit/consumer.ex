@@ -32,13 +32,14 @@ defmodule WhiteRabbit.Consumer do
 
   ```
   DynamicSupervisor.start_child(
-    WhiteRabbit.Fluffle.DynamicSupervisor.Consumer,
+    Aggie.WhiteRabbit.Fluffle.DynamicSupervisor.Consumer,
     {WhiteRabbit.Consumer, %WhiteRabbit.Consumer{
-      connection_name: :aggie_connection,
-      name: "Aggie.JsonConsumer",
-      exchange: "json_test_exchange",
-      queue: "json_test_queue",
-      processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+        owner_module: Aggie.WhiteRabbit,
+        connection_name: :aggie_connection,
+        name: "Aggie.JsonConsumer",
+        exchange: "json_test_exchange",
+        queue: "json_test_queue",
+        processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
       }
     }
   )
@@ -58,22 +59,25 @@ defmodule WhiteRabbit.Consumer do
 
   require Logger
 
-  @enforce_keys [:name, :queue, :processor]
+  @enforce_keys [:name, :queue, :processor, :connection_name]
   defstruct name: __MODULE__,
+            owner_module: WhiteRabbit,
             exchange: "",
             queue: "",
             queue_opts: [durable: true],
             error_queue: true,
             channel_name: :default_consumer_channel,
-            connection_name: :whiterabbit_default_connection,
+            connection_name: nil,
             exchange_type: :topic,
             binding_keys: ["#"],
             processor: nil,
             prefetch_count: 100,
-            uuid_name: ""
+            uuid_name: "",
+            channel_registry: nil
 
   @type t :: %__MODULE__{
           name: __MODULE__.t(),
+          owner_module: module(),
           exchange: String.t(),
           queue: String.t(),
           queue_opts: Keyword.t(),
@@ -84,7 +88,8 @@ defmodule WhiteRabbit.Consumer do
           binding_keys: [String.t()],
           processor: WhiteRabbit.Processor.Config.t(),
           prefetch_count: integer(),
-          uuid_name: String.t()
+          uuid_name: String.t(),
+          channel_registry: term()
         }
 
   @doc """
@@ -94,16 +99,22 @@ defmodule WhiteRabbit.Consumer do
     GenServer.start_link(__MODULE__, args, name: name)
   end
 
-  def start_link(%Consumer{name: name} = args) do
+  def start_link(%Consumer{name: name, owner_module: owner_module} = args) do
+    init_config = :persistent_term.get({WhiteRabbit, owner_module})
+
+    %{fluffle_registry_name: fluffle_registry_name, channel_registry: channel_registry} =
+      init_config
+
     uuid_name = "#{name}-#{uuid_tag(8)}"
     Logger.debug(uuid_name)
-    args = Map.put(args, :uuid_name, uuid_name)
+    # add additional overridden fields
+    args = Map.put(args, :uuid_name, uuid_name) |> Map.put(:channel_registry, channel_registry)
     Logger.debug(inspect(args))
-    GenServer.start_link(__MODULE__, args, name: register_name(uuid_name))
+    GenServer.start_link(__MODULE__, args, name: register_name(uuid_name, fluffle_registry_name))
   end
 
-  def register_name(name) do
-    {:via, Registry, {FluffleRegistry, name}}
+  def register_name(name, registry_name \\ WhiteRabbit.Fluffle.FluffleRegistry) do
+    {:via, Registry, {registry_name, name}}
   end
 
   @impl true
@@ -113,7 +124,7 @@ defmodule WhiteRabbit.Consumer do
         } = args
       ) do
     # Get Channel and Monitor
-    case get_channel_from_pool(connection_name) do
+    case get_channel_from_pool(connection_name, args.channel_registry) do
       {:ok, {_pid, _channel} = channel} ->
         {:ok, state} = init_consumer(args, channel)
         {:ok, state}
@@ -258,7 +269,11 @@ defmodule WhiteRabbit.Consumer do
 
     :timer.sleep(backoff_delay)
 
-    with {:ok, channel} <- get_channel_from_pool(consumer_init_args.connection_name),
+    with {:ok, channel} <-
+           get_channel_from_pool(
+             consumer_init_args.connection_name,
+             consumer_init_args.channel_registry
+           ),
          {:ok, new_state} <- init_consumer(consumer_init_args, channel) do
       {:noreply, new_state, state}
     else
@@ -297,8 +312,7 @@ defmodule WhiteRabbit.Consumer do
     Basic.qos(active_channel, prefetch_count: prefetch_count)
 
     # Register the GenServer process as a consumer to the server
-    {:ok, consumer_tag} =
-      Basic.consume(active_channel, queue, nil, consumer_tag: "ctag-#{uuid_name}")
+    {:ok, consumer_tag} = Basic.consume(active_channel, queue, nil, consumer_tag: "#{uuid_name}")
 
     {:ok, %{channel: active_channel, consumer_tag: consumer_tag}}
   end
@@ -359,14 +373,21 @@ defmodule WhiteRabbit.Consumer do
 
   Optionally pass an integer as the second argument to start any number of Consumers with the same config.
   """
-  @spec start_dynamic_consumers(config :: Consumer.t(), concurrency :: integer()) :: [
+  @spec start_dynamic_consumers(
+          config :: Consumer.t(),
+          concurrency :: integer(),
+          owner_module :: module()
+        ) :: [
           tuple()
         ]
-  def start_dynamic_consumers(%Consumer{} = config, concurrency \\ 1)
+  def start_dynamic_consumers(%Consumer{} = config, concurrency, owner_module)
       when is_integer(concurrency) and is_map(config) do
     for i <- 1..concurrency do
+      supervisor =
+        "#{owner_module}.Fluffle.DynamicSupervisor.Consumer" |> String.to_existing_atom()
+
       DynamicSupervisor.start_child(
-        WhiteRabbit.Fluffle.DynamicSupervisor.Consumer,
+        supervisor,
         {WhiteRabbit.Consumer, config}
       )
     end

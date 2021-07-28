@@ -17,6 +17,8 @@ defmodule WhiteRabbit.ChannelsAndConnSupervisor do
 
   alias WhiteRabbit.{ChannelSupervisor, Connection, Channel}
 
+  require Logger
+
   defstruct connection: nil,
             channels: []
 
@@ -27,15 +29,27 @@ defmodule WhiteRabbit.ChannelsAndConnSupervisor do
   end
 
   @impl true
-  def init(
-        %Connection{connection_name: connection_name, conn_opts: _conn_opts, channels: channels} =
-          opts
-      ) do
+  def init(opts) do
+    connection = Keyword.get(opts, :connection, nil)
+
+    %Connection{connection_name: connection_name, conn_opts: _conn_opts, channels: channels} =
+      connection
+
+    module = Keyword.get(opts, :module, WhiteRabbit)
+
+    channel_supervisor_name = module.process_name("ChannelSupervisor:#{connection_name}")
+
     children = [
       # 1 WhiteRabbit.Connection
-      {WhiteRabbit.Connection, opts},
+      {WhiteRabbit.Connection, [module: module, connection: connection]},
       # 1 WhiteRabbits.ChannelSupervisor
-      {ChannelSupervisor, %{connection: connection_name, channels: channels}}
+      {ChannelSupervisor,
+       [
+         module: module,
+         name: channel_supervisor_name,
+         connection: connection_name,
+         channels: channels
+       ]}
     ]
 
     Supervisor.init(children, strategy: :rest_for_one)

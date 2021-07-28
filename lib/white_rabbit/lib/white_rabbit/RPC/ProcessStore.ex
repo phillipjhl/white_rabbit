@@ -26,8 +26,8 @@ defmodule WhiteRabbit.RPC.ProcessStore do
   end
 
   @spec fetch_id(term()) :: {:ok, any()} | {:error, nil}
-  def fetch_id(key) do
-    case :ets.lookup(:rpc_store, key) do
+  def fetch_id(key, table \\ :rpc_store) do
+    case :ets.lookup(table, key) do
       [{^key, value}] -> {:ok, value}
       [] -> {:error, nil}
     end
@@ -36,6 +36,16 @@ defmodule WhiteRabbit.RPC.ProcessStore do
   def insert(name, key, value) do
     :ets.insert(name, {key, value})
   end
+
+  @spec get_config_for_service(atom()) :: any()
+  @doc """
+  Get a value from :persistent_term using key `{WhiteRabbit, service}`
+  """
+  def get_config_for_service(service) do
+    :persistent_term.get({WhiteRabbit, service})
+  end
+
+  #### GenServer ####
 
   @impl true
   def init(arg) do

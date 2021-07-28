@@ -126,7 +126,7 @@ defmodule Aggie.WhiteRabbit do
   alias WhiteRabbit.{Connection, Core}
 
   # Define list of connections for this WhiteRabbit instance
-  def connections do
+  def get_connections do
     [
       %Connection{
         connection_name: :aggie_connection,
@@ -158,38 +158,9 @@ defmodule Aggie.WhiteRabbit do
   # Use callback spec to return %WhiteRabbit.RPC.Config{} struct
   @impl true
   def get_rpc_config do
-    reply_id = Core.uuid_tag()
-
     %WhiteRabbit.RPC.Config{
-      service_consumer: %WhiteRabbit.Consumer{
-        connection_name: :aggie_rpc_connection,
-        name: "Aggie.RPC.Receiver",
-        exchange: "suzerain.rpcs.exchange",
-        queue: "aggie.rpcs",
-        queue_opts: [auto_delete: true],
-        binding_keys: ["aggie.rpcs"],
-        error_queue: false,
-        processor: %WhiteRabbit.Processor.Config{
-          module: WhiteRabbit.RPC,
-          function: :handle_rpc_message!
-        }
-      },
-      replies_consumer: %WhiteRabbit.Consumer{
-        connection_name: :aggie_rpc_connection,
-        name: "Aggie.RPC.Replies",
-        exchange: "amq.direct",
-        exchange_type: :direct,
-        queue: "aggie.rpcs.replies.#{reply_id}",
-        queue_opts: [auto_delete: true, durable: false, exclusive: true],
-        binding_keys: ["#{reply_id}"],
-        error_queue: false,
-        processor: %WhiteRabbit.Processor.Config{
-          module: WhiteRabbit.RPC,
-          function: :return_rpc_message!
-        }
-      },
-      service_name: "aggie",
-      reply_id: reply_id
+      service_name: :aggie,
+      connection_name: :aggie_rpc_connection
     }
   end
 
@@ -233,6 +204,8 @@ See `WhiteRabbit.Processor` module for more info on that behaviour
 
 ```elixir
 aggie_config = %WhiteRabbit.Consumer{
+  owner_module: Aggie.WhiteRabbit,
+  connection_name: :aggie_connection,
   name: "Aggie.TestJsonProcessor",
   exchange: "json_test_exchange",
   queue: "json_test_queue",
@@ -240,22 +213,61 @@ aggie_config = %WhiteRabbit.Consumer{
 }
 
 jeopardy_config = %WhiteRabbit.Consumer{
+  owner_module: Jeopardy.WhiteRabbit,
+  connection_name: :jeopardy_connection,
   name: "Jeopardy.TestJsonProcessor",
   exchange: "jeopardy_json_test_exchange",
   queue: "jeopardy_json_test_queue",
   processor: %WhiteRabbit.Processor.Config{module: Jeopardy.TestJsonProcessor}
 }
 
-WhiteRabbit.Core.start_dynamic_consumers(aggie_config, 3)
-WhiteRabbit.Core.start_dynamic_consumers(jeopardy_config, 3)
+Aggie.WhiteRabbit.start_dynamic_consumers(aggie_config, 3)
+Jeopardy.WhiteRabbit.start_dynamic_consumers(jeopardy_config, 3)
+
+# or specifying the ownder module
+
+WhiteRabbit.start_dynamic_consumers(aggie_config, 3, Aggie.WhiteRabbit)
+WhiteRabbit.start_dynamic_consumers(jeopardy_config, 3, Jeopardy.WhiteRabbit)
 ```
 
 ### Publish With Producer Module
 See `WhiteRabbit.Producer`
 
+If using the Producer as a behavior there is a providing `publish/5` that you can just provide the connection_name so it will use the correct connection pool and use a channel under that already opened connection.
+
+This method will make sure the channel and connection used are from the calling application which will be under the correct supervision tree.
+
+This is the prefered method especially if there are serveral applications with `WhiteRabbit` modules under an umbrella application.
+
 ```elixir
-WhiteRabbit.Producer.publish(:aggie_connection, "test_exchange", "test_route", "hello there", persistent: true)
+defmodule Aggie.Producer.Json do
+  use WhiteRabbit.Producer
+
+  def send_json(payload) do
+    publish(:aggie_connection, "json_test_exchange", "test_json", payload,
+        content_type: "application/json",
+        persistent: true
+      )
+  end
+end
 ```
+
+If you know the channel registry name and the connection name of the pool to use then you can use the `publish/5` function with a tuple as the first argument.
+
+```elixir
+WhiteRabbit.Producer.publish({:aggie_connection, Aggie.WhiteRabbit.ChannelRegistry}, "test_exchange", "test_route", "hello there", persistent: true)
+```
+
+If there is an already connected channel you can use the `publish/5`.
+
+Example:
+
+```elixir
+channel = %AMQP.Channel{}
+
+WhiteRabbit.Producer.publish(channel, "test_exchange", "test_route", "hello there", persistent: true)
+``` 
+
 ### Test Publish to Exchange
 
 ```elixir
@@ -268,12 +280,14 @@ WhiteRabbit.Core.test_publish(100, "jeopardy_json_test_exchange", "test_json", %
 
 See `WhiteRabbit.RPC` for more information on RPC calls and message handling.
 
-Using the RPC config shown above, a process can call the function `WhiteRabbit.RPC.call/2` to make an RPC call to the service and get a response back from the server and have it map back correctly to the calling process.
+Using the RPC config shown above, a process can call the function `WhiteRabbit.RPC.call/4` to make an RPC call to the service and get a response back from the server and have it map back correctly to the calling process.
+
+If using as a behavior, then a `rpc_call/3` function will be provided that accepts the service to call, mfa tuple, and options. 
 
 Example:
 
 ```elixir
-iex> WhiteRabbit.RPC.call("aggie", {Aggie.Utils, :get_versions, []})
+iex> Mice.WhiteRabbit.rpc_call(:aggie, {Aggie.Utils, :get_versions, []})
 {:ok,
  [
    %{"name" => "aggie", "version" => "3.5.0"},

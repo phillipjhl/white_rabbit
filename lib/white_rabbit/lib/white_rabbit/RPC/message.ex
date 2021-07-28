@@ -5,6 +5,7 @@ defmodule WhiteRabbit.RPC.Message do
   """
 
   @enforce_keys [:module, :function, :args, :caller_id]
+  @derive [Jason.Encoder]
   defstruct module: nil, function: nil, args: nil, caller_id: nil
 
   def convert!(data) when is_map(data) do

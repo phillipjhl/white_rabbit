@@ -21,18 +21,25 @@ defmodule WhiteRabbit.ChannelSupervisor do
   alias WhiteRabbit.{Channel}
 
   def start_link(opts) do
-    Supervisor.start_link(__MODULE__, opts)
+    name = Keyword.get(opts, :name, __MODULE__)
+    Supervisor.start_link(__MODULE__, opts, name: name)
   end
 
-  def init(%{connection: connection, channels: channels}) do
+  def init(arg) do
+    connection = Keyword.get(arg, :connection, nil)
+    channels = Keyword.get(arg, :channels, [])
+    module = Keyword.get(arg, :module, WhiteRabbit)
+
     channel_child_specs =
       Enum.map(channels, fn channel ->
         # All channels will register to main Channel Process Registry
+        channel_name = module.process_name("#{channel.name}")
+
         %{
-          id: channel.name,
+          id: channel_name,
           start:
             {WhiteRabbit.Channel, :start_link,
-             [%Channel{connection: connection, name: channel.name}]}
+             [[module: module, channel: %Channel{connection: connection, name: channel.name}]]}
         }
       end)
 

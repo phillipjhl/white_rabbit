@@ -81,8 +81,11 @@ defmodule WhiteRabbit.Connection do
   """
   @type t :: %__MODULE__{connection_name: atom(), conn_opts: keyword(), channels: list(map())}
 
-  def start_link(%__MODULE__{connection_name: connection_name} = opts) do
-    GenServer.start_link(__MODULE__, opts, name: connection_name)
+  def start_link(opts) do
+    connection = Keyword.get(opts, :connection, nil)
+    %__MODULE__{connection_name: connection_name} = connection
+
+    GenServer.start_link(__MODULE__, connection, name: connection_name)
   end
 
   @impl true

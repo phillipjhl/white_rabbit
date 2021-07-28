@@ -53,12 +53,21 @@ defmodule WhiteRabbit.Producer do
   alias AMQP.Basic
   alias WhiteRabbit.Core
 
-  defmacro __using__(_opts) do
-    quote do
+  defmacro __using__(opts) do
+    quote bind_quoted: [opts: opts, module: __CALLER__.module] do
       @behaviour WhiteRabbit.Producer
 
+      @whiterabbit_module Keyword.get(opts, :whiterabbit_module, WhiteRabbit)
+      @channel_registry :"#{@whiterabbit_module}.ChannelRegistry"
+
       def publish(conn_pool, exchange, routing_key, message, options) do
-        WhiteRabbit.Producer.publish(conn_pool, exchange, routing_key, message, options)
+        WhiteRabbit.Producer.publish(
+          {conn_pool, @channel_registry},
+          exchange,
+          routing_key,
+          message,
+          options
+        )
       end
 
       defoverridable publish: 5
@@ -121,6 +130,8 @@ defmodule WhiteRabbit.Producer do
 
   Returns `:ok` if successful
 
+  Options: `publish_options`
+
   ### Attaches some :telemetry events as well:
 
   -  `[:white_rabbit, :publish, :start]`
@@ -141,16 +152,40 @@ defmodule WhiteRabbit.Producer do
     }
   """
   @spec publish(
-          conn_pool :: atom(),
+          conn_tuple :: tuple(),
           exchange :: String.t(),
           routing_key :: String.t(),
           message :: any(),
           options :: publish_options
         ) :: on_publish
-  def publish(conn_pool, exchange, routing_key, message, options) do
+  def publish({conn_pool, channel_registry} = conn_tuple, exchange, routing_key, message, options)
+      when is_tuple(conn_tuple) do
+    channel =
+      case Core.get_channel_from_pool(conn_pool, channel_registry) do
+        {:ok, {_pid, channel}} ->
+          channel
+
+        {:error, reason} ->
+          Logger.error("#{reason}")
+          nil
+      end
+
+    if channel do
+      publish(channel, exchange, routing_key, message, options)
+    end
+  end
+
+  @spec publish(
+          channel :: AMQP.Channel.t(),
+          exchange :: String.t(),
+          routing_key :: String.t(),
+          message :: term(),
+          options :: Keyword.t()
+        ) :: :ok
+  def publish(channel, exchange, routing_key, message, options) when is_map(channel) do
     # event metadata
     metadata = %{
-      conn_pool: conn_pool,
+      channel: channel,
       exchange: exchange,
       routing_key: routing_key,
       module: __MODULE__
@@ -164,38 +199,26 @@ defmodule WhiteRabbit.Producer do
       metadata
     )
 
-    channel =
-      case Core.get_channel_from_pool(conn_pool) do
-        {:ok, {_pid, channel}} ->
-          channel
+    all_options =
+      [
+        timestamp: start
+      ] ++ options
 
-        {:error, reason} ->
-          Logger.error("#{reason}")
-          nil
-      end
+    result = Basic.publish(channel, exchange, routing_key, message, all_options)
 
-    if channel do
-      all_options =
-        [
-          timestamp: start
-        ] ++ options
+    stop = :os.system_time()
 
-      result = Basic.publish(channel, exchange, routing_key, message, all_options)
+    :telemetry.execute(
+      [:white_rabbit, :publish, :stop],
+      %{
+        duration: stop - start,
+        count: 1
+      },
+      metadata
+    )
 
-      stop = :os.system_time()
-
-      :telemetry.execute(
-        [:white_rabbit, :publish, :stop],
-        %{
-          duration: stop - start,
-          count: 1
-        },
-        metadata
-      )
-
-      # Return result of Basic.publish()
-      result
-    end
+    # Return result of Basic.publish()
+    result
   end
 
   defoverridable publish: 5
