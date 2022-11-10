@@ -301,18 +301,8 @@ iex> AppFour.WhiteRabbit.rpc_call(:appone, {AppOne.Utils, :get_versions, []})
 $ mix docs
 ```
 
-# To Do
+# Copyright and License
 
-- [ ] Runtime config from external data source
+Copyright (c) 2021, Phillip Langland
 
-  - [ ] Config should be configured/handled externally. This library should just accept a standard data set of config maps for runtime setup.
-
-- [ ] Auto-scaling of event processing with `L = lw`
-
-  ```
-  L - # of msgs
-  l - rate of arrival
-  w - avg time it takes to process 1 message
-
-  Kill/Spawn new processer module to keep a constant time performance level
-  ```
+WhiteRabbit source code is licensed under the [MIT License](./LICENSE).
