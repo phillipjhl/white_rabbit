@@ -223,7 +223,7 @@ apptwo_config = %WhiteRabbit.Consumer{
 AppOne.WhiteRabbit.start_dynamic_consumers(appone_config, 3)
 AppTwo.WhiteRabbit.start_dynamic_consumers(apptwo_config, 3)
 
-# or specifying the ownder module
+# or specifying the owner module
 
 WhiteRabbit.start_dynamic_consumers(appone_config, 3, AppOne.WhiteRabbit)
 WhiteRabbit.start_dynamic_consumers(apptwo_config, 3, AppTwo.WhiteRabbit)
@@ -290,9 +290,8 @@ iex> AppFour.WhiteRabbit.rpc_call(:appone, {AppOne.Utils, :get_versions, []})
 {:ok,
  [
    %{"name" => "appone", "version" => "3.5.0"},
-   %{"name" => "apptwo", "version" => "1.3.0"},
-   %{"name" => "appthree", "version" => "2.6.0"},
-   %{"name" => "appfour", "version" => "2.5.0"}
+   %{"name" => "custom_lib_1", "version" => "1.3.0"},
+   %{"name" => "processing_lib", "version" => "2.6.0"}
  ]}
 ```
 
@@ -308,11 +307,6 @@ $ mix docs
 
   - [ ] Config should be configured/handled externally. This library should just accept a standard data set of config maps for runtime setup.
 
-- [ X ] Consumer and Producer Dynamic Supervisor topology
-- [ X ] RPC control flow
-  Concept:
-  ![RPC Concept](assets/WhiteRabbitRPCFlowGraph-05112021.png)
-
 - [ ] Auto-scaling of event processing with `L = lw`
 
   ```
@@ -322,7 +316,3 @@ $ mix docs
 
   Kill/Spawn new processer module to keep a constant time performance level
   ```
-
-- [ X ] Telemetry event emission
-  - [ X ] publish events
-  - [ X ] consume events
