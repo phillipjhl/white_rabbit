@@ -32,14 +32,14 @@ defmodule WhiteRabbit.Consumer do
 
   ```
   DynamicSupervisor.start_child(
-    Aggie.WhiteRabbit.Fluffle.DynamicSupervisor.Consumer,
+    AppOne.WhiteRabbit.Fluffle.DynamicSupervisor.Consumer,
     {WhiteRabbit.Consumer, %WhiteRabbit.Consumer{
-        owner_module: Aggie.WhiteRabbit,
-        connection_name: :aggie_connection,
-        name: "Aggie.JsonConsumer",
+        owner_module: AppOne.WhiteRabbit,
+        connection_name: :appone_connection,
+        name: "AppOne.JsonConsumer",
         exchange: "json_test_exchange",
         queue: "json_test_queue",
-        processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+        processor: %WhiteRabbit.Processor.Config{module: AppOne.TestJsonProcessor}
       }
     }
   )

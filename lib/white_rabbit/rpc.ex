@@ -9,7 +9,7 @@ defmodule WhiteRabbit.RPC do
 
   #### Example Calls
 
-  `iex> Mice.WhiteRabbit.rpc_call(:aggie, {Aggie.Utils, :get_versions, []})`
+  `iex> AppFour.WhiteRabbit.rpc_call(:appone, {AppOne.Utils, :get_versions, []})`
   """
   require Logger
   require Jason
@@ -20,7 +20,7 @@ defmodule WhiteRabbit.RPC do
   @typedoc """
   Service that a rpc call will be sent to.
 
-  Ex: "aggie"
+  Ex: "appone"
   """
   @type service_rpc :: String.t()
 

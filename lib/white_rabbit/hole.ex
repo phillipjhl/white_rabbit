@@ -89,7 +89,7 @@ defmodule WhiteRabbit.Hole do
     # Override with core RPC options
     service_consumer = %WhiteRabbit.Consumer{
       name: "#{service_name}.RPC.Receiver",
-      exchange: "suzerain.rpcs.exchange",
+      exchange: "myapp.rpcs.exchange",
       queue: "#{service_name}.rpcs",
       binding_keys: ["#{service_name}.rpcs"],
       owner_module: parent_module,

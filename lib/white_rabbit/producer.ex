@@ -5,7 +5,7 @@ defmodule WhiteRabbit.Producer do
   ## Using The Module
   ### Using the `use` macro
   ```
-  defmodule Aggie.Producer.Json do
+  defmodule AppOne.Producer.Json do
     use WhiteRabbit.Producer
 
     def test_publish do
@@ -14,7 +14,7 @@ defmodule WhiteRabbit.Producer do
       payload = Jason.encode!(data)
 
       # Use default publish/5 function
-      publish(:aggie_connection, "json_test_exchange", "test_json", payload,
+      publish(:appone_connection, "json_test_exchange", "test_json", payload,
         content_type: "aplication/json",
         persistent: true
       )
@@ -44,7 +44,7 @@ defmodule WhiteRabbit.Producer do
   -  `[:white_rabbit, :publish, :stop]`
 
   ```
-  iex> WhiteRabbit.Producer.publish(:aggie_conn, "test_exchange", "test_route", "hello there", persistent: true)
+  iex> WhiteRabbit.Producer.publish(:appone_conn, "test_exchange", "test_route", "hello there", persistent: true)
   :ok
   ```
   """

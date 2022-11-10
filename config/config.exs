@@ -7,8 +7,8 @@ config :amqp,
   connections: [
     white_rabbit: [
       # See AMQP.Connection.open() for more options
-      url: System.get_env("RABBITMQ_URL", "amqp://quest:quest@localhost:5672"),
-      name: System.get_env("RABBITMQ_CONN_NAME", "default_suzerain_conn")
+      url: System.get_env("RABBITMQ_URL", "amqp://guest:guest@localhost:5672"),
+      name: System.get_env("RABBITMQ_CONN_NAME", "default_app_conn")
     ]
   ],
   channels: [

@@ -9,8 +9,7 @@ Features:
 - Startup and Runtime support for Consumer GenServer processes
 - Telemetry event emission on publishes, acks, and rejects
 
-V1 Topology
----
+## V1 Topology
 
 ![Topology Flow](assets/WhiteRabbit_Topology.svg)
 
@@ -64,7 +63,7 @@ See `WhiteRabbit.Processor` for more on the behaviour used.
 Example:
 
 ```elixir
-defmodule Aggie.TestJsonProcessor do
+defmodule AppOne.TestJsonProcessor do
   @behaviour WhiteRabbit.Processor
 
   require Logger
@@ -106,11 +105,11 @@ See `WhiteRabbit.Consumer` for more info.
 def get_startup_consumers do
   [
     {WhiteRabbit.Consumer, %WhiteRabbit.Consumer{
-      connection_name: :aggie_connection,
-      name: "Aggie.JsonConsumer",
+      connection_name: :appone_connection,
+      name: "AppOne.JsonConsumer",
       exchange: "json_test_exchange",
       queue: "json_test_queue",
-      processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+      processor: %WhiteRabbit.Processor.Config{module: AppOne.TestJsonProcessor}
       }
     }
   ]
@@ -120,7 +119,7 @@ end
 ### Full Example Module
 
 ```elixir
-defmodule Aggie.WhiteRabbit do
+defmodule AppOne.WhiteRabbit do
   use WhiteRabbit
 
   alias WhiteRabbit.{Connection, Core}
@@ -129,26 +128,26 @@ defmodule Aggie.WhiteRabbit do
   def get_connections do
     [
       %Connection{
-        connection_name: :aggie_connection,
-        conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
+        connection_name: :appone_connection,
+        conn_opts: [url: "amqp://user:pass@localhost:5673/dev"],
         channels: [
           %{
-            name: :aggie_consumer_channel
+            name: :appone_consumer_channel
           },
           %{
-            name: :aggie_producer_channel
+            name: :appone_producer_channel
           }
         ]
       },
       %Connection{
-        connection_name: :aggie_rpc_connection,
-        conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
+        connection_name: :appone_rpc_connection,
+        conn_opts: [url: "amqp://user:pass@localhost:5673/dev"],
         channels: [
           %{
-            name: :aggie_rpc_consumer_channel_1
+            name: :appone_rpc_consumer_channel_1
           },
           %{
-            name: :aggie_rpc_consumer_channel_2
+            name: :appone_rpc_consumer_channel_2
           }
         ]
       }
@@ -159,8 +158,8 @@ defmodule Aggie.WhiteRabbit do
   @impl true
   def get_rpc_config do
     %WhiteRabbit.RPC.Config{
-      service_name: :aggie,
-      connection_name: :aggie_rpc_connection
+      service_name: :appone,
+      connection_name: :appone_rpc_connection
     }
   end
 
@@ -169,11 +168,11 @@ defmodule Aggie.WhiteRabbit do
   def get_startup_consumers do
     [
       {WhiteRabbit.Consumer, %WhiteRabbit.Consumer{
-          connection_name: :aggie_connection,
-          name: "Aggie.JsonConsumer",
+          connection_name: :appone_connection,
+          name: "AppOne.JsonConsumer",
           exchange: "json_test_exchange",
           queue: "json_test_queue",
-          processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+          processor: %WhiteRabbit.Processor.Config{module: AppOne.TestJsonProcessor}
         }
       }
     ]
@@ -203,34 +202,35 @@ The processor module needs to exist before trying to register a consumer for it.
 See `WhiteRabbit.Processor` module for more info on that behaviour
 
 ```elixir
-aggie_config = %WhiteRabbit.Consumer{
-  owner_module: Aggie.WhiteRabbit,
-  connection_name: :aggie_connection,
-  name: "Aggie.TestJsonProcessor",
+appone_config = %WhiteRabbit.Consumer{
+  owner_module: AppOne.WhiteRabbit,
+  connection_name: :appone_connection,
+  name: "AppOne.TestJsonProcessor",
   exchange: "json_test_exchange",
   queue: "json_test_queue",
-  processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+  processor: %WhiteRabbit.Processor.Config{module: AppOne.TestJsonProcessor}
 }
 
-jeopardy_config = %WhiteRabbit.Consumer{
-  owner_module: Jeopardy.WhiteRabbit,
-  connection_name: :jeopardy_connection,
-  name: "Jeopardy.TestJsonProcessor",
-  exchange: "jeopardy_json_test_exchange",
-  queue: "jeopardy_json_test_queue",
-  processor: %WhiteRabbit.Processor.Config{module: Jeopardy.TestJsonProcessor}
+apptwo_config = %WhiteRabbit.Consumer{
+  owner_module: AppTwo.WhiteRabbit,
+  connection_name: :apptwo_connection,
+  name: "AppTwo.TestJsonProcessor",
+  exchange: "apptwo_json_test_exchange",
+  queue: "apptwo_json_test_queue",
+  processor: %WhiteRabbit.Processor.Config{module: AppTwo.TestJsonProcessor}
 }
 
-Aggie.WhiteRabbit.start_dynamic_consumers(aggie_config, 3)
-Jeopardy.WhiteRabbit.start_dynamic_consumers(jeopardy_config, 3)
+AppOne.WhiteRabbit.start_dynamic_consumers(appone_config, 3)
+AppTwo.WhiteRabbit.start_dynamic_consumers(apptwo_config, 3)
 
 # or specifying the ownder module
 
-WhiteRabbit.start_dynamic_consumers(aggie_config, 3, Aggie.WhiteRabbit)
-WhiteRabbit.start_dynamic_consumers(jeopardy_config, 3, Jeopardy.WhiteRabbit)
+WhiteRabbit.start_dynamic_consumers(appone_config, 3, AppOne.WhiteRabbit)
+WhiteRabbit.start_dynamic_consumers(apptwo_config, 3, AppTwo.WhiteRabbit)
 ```
 
 ### Publish With Producer Module
+
 See `WhiteRabbit.Producer`
 
 If using the Producer as a behavior there is a providing `publish/5` that you can just provide the connection_name so it will use the correct connection pool and use a channel under that already opened connection.
@@ -240,11 +240,11 @@ This method will make sure the channel and connection used are from the calling 
 This is the prefered method especially if there are serveral applications with `WhiteRabbit` modules under an umbrella application.
 
 ```elixir
-defmodule Aggie.Producer.Json do
+defmodule AppOne.Producer.Json do
   use WhiteRabbit.Producer
 
   def send_json(payload) do
-    publish(:aggie_connection, "json_test_exchange", "test_json", payload,
+    publish(:appone_connection, "json_test_exchange", "test_json", payload,
         content_type: "application/json",
         persistent: true
       )
@@ -255,7 +255,7 @@ end
 If you know the channel registry name and the connection name of the pool to use then you can use the `publish/5` function with a tuple as the first argument.
 
 ```elixir
-WhiteRabbit.Producer.publish({:aggie_connection, Aggie.WhiteRabbit.ChannelRegistry}, "test_exchange", "test_route", "hello there", persistent: true)
+WhiteRabbit.Producer.publish({:appone_connection, AppOne.WhiteRabbit.ChannelRegistry}, "test_exchange", "test_route", "hello there", persistent: true)
 ```
 
 If there is an already connected channel you can use the `publish/5`.
@@ -266,15 +266,14 @@ Example:
 channel = %AMQP.Channel{}
 
 WhiteRabbit.Producer.publish(channel, "test_exchange", "test_route", "hello there", persistent: true)
-``` 
+```
 
 ### Test Publish to Exchange
 
 ```elixir
 WhiteRabbit.Core.test_publish(100, "json_test_exchange", "test_json", %{hello: "there"})
-WhiteRabbit.Core.test_publish(100, "jeopardy_json_test_exchange", "test_json", %{hello: "there"})
+WhiteRabbit.Core.test_publish(100, "apptwo_json_test_exchange", "test_json", %{hello: "there"})
 ```
-
 
 ### RPC Calls
 
@@ -282,21 +281,18 @@ See `WhiteRabbit.RPC` for more information on RPC calls and message handling.
 
 Using the RPC config shown above, a process can call the function `WhiteRabbit.RPC.call/4` to make an RPC call to the service and get a response back from the server and have it map back correctly to the calling process.
 
-If using as a behavior, then a `rpc_call/3` function will be provided that accepts the service to call, mfa tuple, and options. 
+If using as a behavior, then a `rpc_call/3` function will be provided that accepts the service to call, mfa tuple, and options.
 
 Example:
 
 ```elixir
-iex> Mice.WhiteRabbit.rpc_call(:aggie, {Aggie.Utils, :get_versions, []})
+iex> AppFour.WhiteRabbit.rpc_call(:appone, {AppOne.Utils, :get_versions, []})
 {:ok,
  [
-   %{"name" => "aggie", "version" => "3.5.0"},
-   %{"name" => "excheetah", "version" => "2.2.0"},
-   %{"name" => "bartleby", "version" => "2.6.0"}, 
-   %{"name" => "jeopardy", "version" => "1.3.0"},
-   %{"name" => "mice", "version" => "2.5.0"},
-   %{"name" => "blackhawk", "version" => "0.1.0"},
-   %{"name" => "alegeus", "version" => "1.0.2"}
+   %{"name" => "appone", "version" => "3.5.0"},
+   %{"name" => "apptwo", "version" => "1.3.0"},
+   %{"name" => "appthree", "version" => "2.6.0"},
+   %{"name" => "appfour", "version" => "2.5.0"}
  ]}
 ```
 
@@ -309,12 +305,13 @@ $ mix docs
 # To Do
 
 - [ ] Runtime config from external data source
+
   - [ ] Config should be configured/handled externally. This library should just accept a standard data set of config maps for runtime setup.
 
 - [ X ] Consumer and Producer Dynamic Supervisor topology
 - [ X ] RPC control flow
-      Concept:
-      ![RPC Concept](assets/WhiteRabbitRPCFlowGraph-05112021.png)
+  Concept:
+  ![RPC Concept](assets/WhiteRabbitRPCFlowGraph-05112021.png)
 
 - [ ] Auto-scaling of event processing with `L = lw`
 

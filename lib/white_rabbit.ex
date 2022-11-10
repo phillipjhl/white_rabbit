@@ -72,7 +72,7 @@ defmodule WhiteRabbit do
 
       Optionally pass an integer as the second argument to start any number of Consumers with the same config.
 
-      Optionally pass a module of the owning `WhiteRabbit` module. e.g. Aggie.WhiteRabbit
+      Optionally pass a module of the owning `WhiteRabbit` module. e.g. AppOne.WhiteRabbit
       - Defaults to this module.
       """
       @spec start_dynamic_consumers(
@@ -105,8 +105,8 @@ defmodule WhiteRabbit do
   @impl true
   def get_rpc_config do
     %WhiteRabbit.RPC.Config{
-      service_name: "aggie",
-      connection_name: :aggie_rpc_connection
+      service_name: "appone",
+      connection_name: :appone_rpc_connection
     }
   end
   ```
@@ -123,11 +123,11 @@ defmodule WhiteRabbit do
     [
       {WhiteRabbit.Consumer,
        %WhiteRabbit.Consumer{
-         connection_name: :aggie_connection,
-         name: "Aggie.JsonConsumer",
+         connection_name: :appone_connection,
+         name: "AppOne.JsonConsumer",
          exchange: "json_test_exchange",
          queue: "json_test_queue",
-         processor: %WhiteRabbit.Processor.Config{module: Aggie.TestJsonProcessor}
+         processor: %WhiteRabbit.Processor.Config{module: AppOne.TestJsonProcessor}
        }}
     ]
   end
@@ -144,26 +144,26 @@ defmodule WhiteRabbit do
   def get_connections do
     [
       %Connection{
-        connection_name: :aggie_connection,
-        conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
+        connection_name: :appone_connection,
+        conn_opts: [url: "amqp://user:pass@localhost:5673/dev"],
         channels: [
           %{
-            name: :aggie_consumer_channel
+            name: :appone_consumer_channel
           },
           %{
-            name: :aggie_producer_channel
+            name: :appone_producer_channel
           }
         ]
       },
       %Connection{
-        connection_name: :aggie_rpc_connection,
-        conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"],
+        connection_name: :appone_rpc_connection,
+        conn_opts: [url: "amqp://user:pass@localhost:5673/dev"],
         channels: [
           %{
-            name: :aggie_rpc_consumer_channel_1
+            name: :appone_rpc_consumer_channel_1
           },
           %{
-            name: :aggie_rpc_consumer_channel_2
+            name: :appone_rpc_consumer_channel_2
           }
         ]
       }

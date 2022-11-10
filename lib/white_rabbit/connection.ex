@@ -71,7 +71,7 @@ defmodule WhiteRabbit.Connection do
 
   Example
   ```
-  [conn_opts: [url: "amqp://suzerain:suzerain@localhost:5673/dev"]]
+  [conn_opts: [url: "amqp://user:pass@localhost:5673/dev"]]
   ```
   """
   @type conn_opts :: [conn_opt()]
