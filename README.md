@@ -2,8 +2,6 @@
 
 RabbitMQ Elixir library to handle all consuming, producing, and exchanging of RabbitMQ messages.
 
-![Logo](assets/logos/WhiteRabbit_white.png)
-
 This lightweight library makes use of the AMQP 0-9-1 protocol. Use WhiteRabbit to help with scaling and processing of your RabbitMQ message queues. 
 
 Whether you need just connection and channel recovery with running processes, or want to take advantage of the RPC call architecture across independent distributed OTP applications with the benefit of having your messages being sent to your RabbitMQ's queues; this library will build upon whatever is required for your application. 

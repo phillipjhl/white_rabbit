@@ -4,6 +4,7 @@ defmodule WhiteRabbit.Mixfile do
   def project do
     [
       app: :white_rabbit,
+      description: description(),
       version: "0.2.0",
       elixir: "~> 1.6",
       build_path: "_build",
@@ -13,6 +14,7 @@ defmodule WhiteRabbit.Mixfile do
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      package: package(),
       name: "White Rabbit",
       source_url: "https://github.com/phillipjhl/white_rabbit",
       docs: [
@@ -50,6 +52,17 @@ defmodule WhiteRabbit.Mixfile do
       {:jason, "~> 1.0"},
       {:telemetry, "~> 0.4.0"},
       {:ex_doc, "~> 0.24", only: :dev, runtime: false}
+    ]
+  end
+
+  def description() do
+    "Library to handle all consuming, producing, and exchanging of RabbitMQ messages via AMQP 0-9-1 protocol. Also enables RPC across independent OTP apps over RabbitMQ queues."
+  end
+
+  def package() do
+    [
+      licenses: ["MIT"],
+      links: %{"github" => "https://github.com/phillipjhl/white_rabbit"}
     ]
   end
 end
