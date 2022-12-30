@@ -14,9 +14,13 @@ defmodule WhiteRabbit.Mixfile do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       name: "White Rabbit",
+      source_url: "https://github.com/phillipjhl/white_rabbit",
       docs: [
-        main: "White Rabbit",
-        extras: ["README.md"]
+        assets: "assets/",
+        main: "readme",
+        extras: ["README.md", "LICENSE"],
+        authors: ["(@phillipjhl) Phillip Langland"],
+        javascript_config_path: "./hex-docs.js"
       ]
     ]
   end

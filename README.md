@@ -2,14 +2,22 @@
 
 RabbitMQ Elixir library to handle all consuming, producing, and exchanging of RabbitMQ messages.
 
+![Logo](assets/logos/WhiteRabbit_white.png)
+
+This lightweight library makes use of the AMQP 0-9-1 protocol. Use WhiteRabbit to help with scaling and processing of your RabbitMQ message queues. 
+
+Whether you need just connection and channel recovery with running processes, or want to take advantage of the RPC call architecture across independent distributed OTP applications with the benefit of having your messages being sent to your RabbitMQ's queues; this library will build upon whatever is required for your application. 
+
 Features:
 
-- RPC call architecture between apps.
-- Auto recovery and resarts of connections and their channels, and the consumers using them
-- Startup and Runtime support for Consumer GenServer processes
+- RPC call architecture between apps using RabbitMQ and reply_to key routing.
+- Auto recovery and restarts of connections, their channels, and the consumers using them
+- Startup and runtime support for Consumer GenServer processes. Start them at runtime using Elixir's DynamicSupervisors.
 - Telemetry event emission on publishes, acks, and rejects
 
-## V1 Topology
+If this isn't exactly what you are looking for, I recommend the well-known elixir library [broadway](https://github.com/dashbitco/broadway). Even though that is intended for multi-stage data ingest using GenStages and has more batch-level processing in mind, it has similar features that could fit your needs.
+
+## v0.1.0 Topology
 
 ![Topology Flow](assets/WhiteRabbit_Topology.svg)
 
@@ -20,7 +28,7 @@ Features:
 ```elixir
   defp deps do
     [
-      {:white_rabbit, path: "path/to/project"},
+      {:white_rabbit, "~> 0.2.0"},
     ]
   end
 ```
