@@ -3,11 +3,9 @@ defmodule WhiteRabbit.Core do
   Contains helper and util functions for the entire `WhiteRabbit` library.
   """
 
-  alias WhiteRabbit.Consumer.State
-  alias WhiteRabbit.Consumer
   alias WhiteRabbit
 
-  alias AMQP.{Connection, Channel, Exchange, Queue, Basic}
+  alias AMQP.{Channel, Exchange, Queue, Basic}
 
   require Logger
 
@@ -150,13 +148,9 @@ defmodule WhiteRabbit.Core do
     end
   end
 
-  @doc """
-  Consume function that actually processes the message.any()
-
-  TO DO: Probably need to have the actual 'processor' functions in seperate spawned workers to keep them out
-  of the Consumer Genserver process. The spawned workers can then send acks or rejects.
-
-  """
+  # Consume function that actually processes the message.any()
+  # TO DO: Probably need to have the actual 'processor' functions in seperate spawned workers to keep them out
+  # of the Consumer Genserver process. The spawned workers can then send acks or rejects.
   defp test_consume(channel, payload, %{delivery_tag: tag, redelivered: redelivered} = meta) do
     %{content_type: content_type} = meta
 

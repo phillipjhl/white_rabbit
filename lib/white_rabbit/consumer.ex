@@ -382,7 +382,7 @@ defmodule WhiteRabbit.Consumer do
         ]
   def start_dynamic_consumers(%Consumer{} = config, concurrency, owner_module)
       when is_integer(concurrency) and is_map(config) do
-    for i <- 1..concurrency do
+    for _i <- 1..concurrency do
       supervisor =
         "#{owner_module}.Fluffle.DynamicSupervisor.Consumer" |> String.to_existing_atom()
 
