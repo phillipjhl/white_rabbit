@@ -140,7 +140,13 @@ defmodule WhiteRabbit.Core do
       ] ++ options
 
     for _i <- 1..number do
-      WhiteRabbit.Producer.publish(:appone_connection, exchange, routing_key, payload, all_options)
+      WhiteRabbit.Producer.publish(
+        :appone_connection,
+        exchange,
+        routing_key,
+        payload,
+        all_options
+      )
     end
   end
 
