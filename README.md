@@ -1,5 +1,7 @@
 # White Rabbit
 
+![hexdocs.pm/white_rabbit](https://img.shields.io/hexpm/v/white_rabbit)
+
 RabbitMQ Elixir library to handle all consuming, producing, and exchanging of RabbitMQ messages.
 
 This lightweight library makes use of the AMQP 0-9-1 protocol. Use WhiteRabbit to help with scaling and processing of your RabbitMQ message queues. 
