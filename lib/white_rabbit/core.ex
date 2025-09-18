@@ -34,7 +34,14 @@ defmodule WhiteRabbit.Core do
   @doc """
   Declare a queue with a dead-letter queue
   """
-  @spec declare_queue(Channel.t(), String.t(), String.t(), Exchange.t(), Keyword.t(), String.t()) ::
+  @spec declare_queue(
+          Channel.t(),
+          String.t(),
+          String.t(),
+          Basic.exchange(),
+          Keyword.t(),
+          String.t()
+        ) ::
           :ok
   def declare_queue(channel, queue, error_queue, exchange, queue_opts, binding_key) do
     # Messages that cannot be delivered to any consumer in the main queue will be routed to the error queue
@@ -61,14 +68,14 @@ defmodule WhiteRabbit.Core do
   @doc """
    Setup an exchange with some default args.
   """
-  @spec setup_exchange(Channel.t(), Exchange.t(), atom()) :: :ok
+  @spec setup_exchange(Channel.t(), Basic.exchange(), atom()) :: :ok
   def setup_exchange(
         channel,
         exchange,
         exchange_type
       ) do
     if String.length(exchange) > 0 do
-      # Declare Exchange to use with Genserver Consumer
+      # Declare Basic.exchangeo use with Genserver Consumer
       Exchange.declare(channel, exchange, exchange_type, durable: true)
     end
   end
@@ -78,18 +85,15 @@ defmodule WhiteRabbit.Core do
 
     You can monitor the returned channel for :DOWN events to be able to re-register as a consumer.
   """
-  @spec get_channel(atom(), atom()) :: {:ok, Channel.t()}
-  def get_channel(channel_name, connection_name) do
+  @spec get_channel(atom()) :: {:ok, Channel.t()} | {:error, term()}
+  def get_channel(channel_name) do
     case AMQP.Application.get_channel(channel_name) do
       {:ok, chan} ->
         {:ok, chan}
 
       {:error, error} ->
         Logger.error("#{inspect(error)}")
-        # Retrying
-        :timer.sleep(5000)
-
-        get_channel(channel_name, connection_name)
+        {:error, error}
     end
   rescue
     error ->
@@ -105,7 +109,7 @@ defmodule WhiteRabbit.Core do
   Returns `{:ok, AMQP.Channel.t()}`
   """
   @spec get_channel_from_pool(connection_name :: atom(), registry :: atom()) ::
-          {:ok, AMQP.Channel.t()} | {:error, any()}
+          {:ok, {pid(), AMQP.Channel.t()}} | {:error, any()}
   def get_channel_from_pool(connection_name, registry)
       when is_atom(connection_name) and is_atom(registry) do
     channels = Registry.lookup(registry, connection_name)
@@ -117,67 +121,6 @@ defmodule WhiteRabbit.Core do
       # {pid, channel} = Enum.random(channels)
       {:ok, Enum.random(channels)}
     end
-  end
-
-  @spec test_publish(integer(), String.t(), String.t(), map(), Keyword.t()) :: [atom()]
-  def test_publish(
-        number \\ 100,
-        exchange \\ "json_test_exchange",
-        routing_key \\ "test_json",
-        payload \\ %{hello: "world"},
-        options \\ []
-      ) do
-    # {:ok, {_pid, channel}} = get_channel_from_pool(:whiterabbit_default_connection)
-    # exchange = "json_test_exchange"
-    # routing_key = "test_json"
-    payload = Jason.encode!(payload)
-
-    all_options =
-      [
-        content_type: "application/json"
-      ] ++ options
-
-    for _i <- 1..number do
-      WhiteRabbit.Producer.publish(
-        :appone_connection,
-        exchange,
-        routing_key,
-        payload,
-        all_options
-      )
-    end
-  end
-
-  # Consume function that actually processes the message.any()
-  # TO DO: Probably need to have the actual 'processor' functions in seperate spawned workers to keep them out
-  # of the Consumer Genserver process. The spawned workers can then send acks or rejects.
-  defp test_consume(channel, payload, %{delivery_tag: tag, redelivered: redelivered} = meta) do
-    %{content_type: content_type} = meta
-
-    case content_type do
-      "application/json" ->
-        {:ok, _json} = Jason.decode(payload)
-
-        # If decoded, send ack to server
-        Basic.ack(channel, tag)
-
-      _ ->
-        Logger.warn(
-          "Payload #{inspect(tag)} did not have correct content_type property set. Not requeing."
-        )
-
-        :ok = Basic.reject(channel, tag, requeue: false)
-    end
-  rescue
-    # Requeue unless it's a redelivered message.
-    # This means we will retry consuming a message once in case of exception
-    # before we give up and have it moved to the error queue
-
-    exception ->
-      # To Do: Further iterations should be able to discern if the error was internal or not. If a failure is caused
-      # an internal/external service being down for instance, there should be a dedicated queue to allow for re-routing and re-processing if needed.
-      Logger.warn("Error consuming message: #{tag} #{inspect(exception)}")
-      :ok = Basic.reject(channel, tag, requeue: not redelivered)
   end
 
   @spec uuid_tag(integer) :: binary

@@ -7,7 +7,7 @@ defmodule WhiteRabbit.Hole do
   use Supervisor
   require Logger
 
-  alias WhiteRabbit.{PoolSupervisor, Connection, Fluffle, RPC, Core}
+  alias WhiteRabbit.{PoolSupervisor, Connection, Fluffle, RPC, Core, Consumer}
 
   @type hole_option ::
           {:name, term()}

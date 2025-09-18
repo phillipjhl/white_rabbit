@@ -38,7 +38,7 @@ defmodule WhiteRabbit.RPC do
     case :persistent_term.get({WhiteRabbit, owner}) do
       %{
         channel_registry: channel_registry,
-        rpc_config: %{reply_id: caller_id, connection_name: rpc_connection_name} = rpc_config,
+        rpc_config: %{reply_id: caller_id, connection_name: rpc_connection_name} = _rpc_config,
         rpc_requests_registry: rpc_requests_registry
       } ->
         Logger.debug("#{owner} client reply_id: #{inspect(caller_id)}")
@@ -70,15 +70,13 @@ defmodule WhiteRabbit.RPC do
           opts :: Keyword.t()
         ) ::
           {:ok, any()} | {:error, any()}
-  defp make_call(caller_id, service, mfa, timeout, opts \\ []) do
+  defp make_call(caller_id, service, mfa, timeout, opts) do
     conn_tuple = Keyword.get(opts, :conn_tuple, nil)
     rpc_requests_registry = Keyword.get(opts, :rpc_requests_registry, RPCRequestRegistry)
 
     Logger.debug("Registry: #{rpc_requests_registry}")
 
     {module, func, args} = mfa
-
-    # namespaced_module = get_namespaced_string(service, module, prefix: true)
 
     payload =
       Jason.encode!(%WhiteRabbit.RPC.Message{
@@ -138,7 +136,7 @@ defmodule WhiteRabbit.RPC do
         send(pid, {:rpc, message})
 
       [] ->
-        Logger.warn("Caller process didnt match, correlation_id: #{inspect(correlation_id)}")
+        Logger.warning("Caller process didnt match, correlation_id: #{inspect(correlation_id)}")
         Basic.reject(channel, delivery_tag, requeue: false)
         {:error, :caller_not_found}
     end
@@ -175,7 +173,7 @@ defmodule WhiteRabbit.RPC do
         Basic.ack(channel, metadata.delivery_tag)
 
       _ ->
-        Logger.warn("Rejecting RPC message: #{inspect(metadata.delivery_tag)}")
+        Logger.warning("Rejecting RPC message: #{inspect(metadata.delivery_tag)}")
         Basic.reject(channel, metadata.delivery_tag, requeue: false)
     end
   end
@@ -223,15 +221,5 @@ defmodule WhiteRabbit.RPC do
         Logger.error("RPC Encode error: #{inspect(error)}")
         {:error, data}
     end
-  end
-
-  defp get_namespaced_string(namespace, module, opts \\ []) do
-    prefix = Keyword.get(opts, :prefix, false)
-    namespace = namespace |> Atom.to_string() |> String.capitalize()
-
-    namespaced_module =
-      if prefix, do: "Elixir.#{namespace}.#{module}", else: "#{namespace}.#{module}"
-
-    namespaced_module
   end
 end
