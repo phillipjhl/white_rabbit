@@ -22,4 +22,6 @@ erl_crash.dump
 # Logs files
 log/
 
+.DS_STORE
+
 
