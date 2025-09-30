@@ -75,7 +75,7 @@ defmodule WhiteRabbit.Core do
         exchange_type
       ) do
     if String.length(exchange) > 0 do
-      # Declare Basic.exchangeo use with Genserver Consumer
+      # Declare Basic.exchange use with GenServer Consumer
       Exchange.declare(channel, exchange, exchange_type, durable: true)
     end
   end

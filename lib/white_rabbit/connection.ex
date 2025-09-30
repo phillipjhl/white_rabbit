@@ -100,7 +100,7 @@ defmodule WhiteRabbit.Connection do
     # If succesful, send new connection state to caller.
     with {:ok, {%AMQP.Connection{}, _config} = new_state} <-
            start_amqp_connection(config) do
-      {:reply, new_state}
+      {:reply, new_state, new_state}
     else
       _ ->
         {:reply, state, state}
