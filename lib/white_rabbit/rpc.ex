@@ -7,9 +7,6 @@ defmodule WhiteRabbit.RPC do
 
   Use the optional WhiteRabbit callback: `WhiteRabbit.get_rpc_config()` to output correct format.
 
-  #### Example Calls
-
-  `iex> AppFour.WhiteRabbit.rpc_call(:appone, {AppOne.Utils, :get_versions, []})`
   """
   require Logger
   require Jason
@@ -96,7 +93,7 @@ defmodule WhiteRabbit.RPC do
     :ok =
       Producer.publish(
         conn_tuple,
-        "suzerain.rpcs.exchange",
+        "rpcs.exchange",
         "#{service}.rpcs",
         payload,
         reply_to: caller_id,
