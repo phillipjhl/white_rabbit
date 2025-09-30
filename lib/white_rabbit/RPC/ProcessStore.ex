@@ -1,5 +1,5 @@
 defmodule WhiteRabbit.RPC.ProcessStore do
-  @doc """
+  @moduledoc """
   GenServer implementation of a key value store using :ets tables to store caller id and their pids to link RPC requests back to
   the correct process.
 

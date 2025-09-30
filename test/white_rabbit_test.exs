@@ -6,5 +6,4 @@ defmodule WhiteRabbitTest do
     assert WhiteRabbit.process_name("foo", :Bar) == :"Bar.foo"
     assert WhiteRabbit.process_name("Bar") == :"Elixir.WhiteRabbit.Bar"
   end
-
 end

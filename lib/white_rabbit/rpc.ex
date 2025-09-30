@@ -23,6 +23,7 @@ defmodule WhiteRabbit.RPC do
   Ex: "appone"
   """
   @type service_rpc :: String.t()
+  @default_timeout 10_000
 
   @spec call(
           owner :: module,
@@ -32,7 +33,7 @@ defmodule WhiteRabbit.RPC do
         ) ::
           {:ok, any()} | {:error, any()}
   def call(owner, service, mfa, opts \\ []) do
-    timeout = Keyword.get(opts, :timeout, 10000)
+    timeout = Keyword.get(opts, :timeout, @default_timeout)
 
     # get config to get caller_id and rpc_config
     case :persistent_term.get({WhiteRabbit, owner}) do
