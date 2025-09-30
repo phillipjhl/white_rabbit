@@ -83,7 +83,7 @@ defmodule WhiteRabbit.Consumer do
           queue_opts: Keyword.t(),
           error_queue: boolean(),
           channel_name: String.t(),
-          connection_name: Sting.t(),
+          connection_name: String.t(),
           exchange_type: atom(),
           binding_keys: [String.t()],
           processor: WhiteRabbit.Processor.Config.t(),
@@ -142,9 +142,6 @@ defmodule WhiteRabbit.Consumer do
            consumer_init_args: args,
            backoff_agent_pid: agent_pid
          }, {:continue, error}}
-
-      _ ->
-        :ignore
     end
   end
 
@@ -278,7 +275,6 @@ defmodule WhiteRabbit.Consumer do
       {:noreply, new_state, state}
     else
       {:error, reason} -> {:noreply, state, {:continue, reason}}
-      _ -> {:stop, :unknown}
     end
   end
 
@@ -319,15 +315,14 @@ defmodule WhiteRabbit.Consumer do
 
   defp channel_monitor(%Consumer{} = args) do
     %Consumer{
-      connection_name: connection_name,
       channel_name: channel_name
     } = args
 
-    case get_channel(channel_name, connection_name) do
-      {:ok, channel} ->
+    case get_channel(channel_name) do
+      {:ok, %AMQP.Channel{} = channel} ->
         register_consumer(channel.pid, channel, args)
 
-      _ ->
+      {:error, _reason} ->
         Process.send_after(self(), :channel_monitor, 5000)
         {:error, :retrying}
     end

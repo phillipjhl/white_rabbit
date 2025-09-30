@@ -7,7 +7,7 @@ defmodule WhiteRabbit.Hole do
   use Supervisor
   require Logger
 
-  alias WhiteRabbit.{PoolSupervisor, Connection, Fluffle, RPC, Core}
+  alias WhiteRabbit.{PoolSupervisor, Connection, Fluffle, RPC, Core, Consumer}
 
   @type hole_option ::
           {:name, term()}
@@ -89,7 +89,7 @@ defmodule WhiteRabbit.Hole do
     # Override with core RPC options
     service_consumer = %WhiteRabbit.Consumer{
       name: "#{service_name}.RPC.Receiver",
-      exchange: "myapp.rpcs.exchange",
+      exchange: "rpcs.exchange",
       queue: "#{service_name}.rpcs",
       binding_keys: ["#{service_name}.rpcs"],
       owner_module: parent_module,

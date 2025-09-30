@@ -5,7 +5,7 @@ defmodule WhiteRabbit.Mixfile do
     [
       app: :white_rabbit,
       description: description(),
-      version: "0.2.0",
+      version: "0.2.1",
       elixir: "~> 1.6",
       build_path: "_build",
       config_path: "config/config.exs",
@@ -18,7 +18,7 @@ defmodule WhiteRabbit.Mixfile do
       name: "White Rabbit",
       source_url: "https://github.com/phillipjhl/white_rabbit",
       docs: [
-        assets: "assets/",
+        assets: %{"assets/" => "assets"},
         main: "readme",
         extras: ["README.md", "LICENSE"],
         authors: ["(@phillipjhl) Phillip Langland"],
@@ -48,10 +48,11 @@ defmodule WhiteRabbit.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:amqp, "~> 2.1"},
+      {:amqp, "~> 4.1"},
       {:jason, "~> 1.0"},
-      {:telemetry, "~> 0.4.0"},
-      {:ex_doc, "~> 0.24", only: :dev, runtime: false}
+      {:telemetry, "~> 1.3.0"},
+      {:ex_doc, "~> 0.24", only: :dev, runtime: false},
+      {:credo, "~> 1.7.0", only: :dev, runtime: false}
     ]
   end
 

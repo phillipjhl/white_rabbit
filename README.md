@@ -28,7 +28,7 @@ If this isn't exactly what you are looking for, I recommend the well-known elixi
 ```elixir
   defp deps do
     [
-      {:white_rabbit, "~> 0.2.0"},
+      {:white_rabbit, "~> 0.2.1"},
     ]
   end
 ```
@@ -62,7 +62,7 @@ Supervisor.start_link(children, opts)
 
 ### Define Processor Modules
 
-`WhiteRabbit.Processor` Behaviour is used to define how a `WhiteRabbit.Consumer` Genserver will process the messages that it receives once it is registered to a RabbitMQ queue.
+`WhiteRabbit.Processor` Behaviour is used to define how a `WhiteRabbit.Consumer` GenServer will process the messages that it receives once it is registered to a RabbitMQ queue.
 
 The `consume_payload/2` callback is called immediately after a message is received. It should return a `{:ok, AMQP.Basic.delivery_tag()}` tuple if successful or a `{:error, {AMQP.Basic.delivery_tag(), Keyword.t()}}` if not successful so the Consumer can properly send an 'ack' or 'reject' for the message and then let RabbitMQ broker can handle it appropriately (requeue, send to dead-letter-queue, etc.)
 
@@ -245,7 +245,7 @@ If using the Producer as a behavior there is a providing `publish/5` that you ca
 
 This method will make sure the channel and connection used are from the calling application which will be under the correct supervision tree.
 
-This is the prefered method especially if there are serveral applications with `WhiteRabbit` modules under an umbrella application.
+This is the preferred method especially if there are several applications with `WhiteRabbit` modules under an umbrella application.
 
 ```elixir
 defmodule AppOne.Producer.Json do
@@ -276,13 +276,6 @@ channel = %AMQP.Channel{}
 WhiteRabbit.Producer.publish(channel, "test_exchange", "test_route", "hello there", persistent: true)
 ```
 
-### Test Publish to Exchange
-
-```elixir
-WhiteRabbit.Core.test_publish(100, "json_test_exchange", "test_json", %{hello: "there"})
-WhiteRabbit.Core.test_publish(100, "apptwo_json_test_exchange", "test_json", %{hello: "there"})
-```
-
 ### RPC Calls
 
 See `WhiteRabbit.RPC` for more information on RPC calls and message handling.
@@ -290,18 +283,6 @@ See `WhiteRabbit.RPC` for more information on RPC calls and message handling.
 Using the RPC config shown above, a process can call the function `WhiteRabbit.RPC.call/4` to make an RPC call to the service and get a response back from the server and have it map back correctly to the calling process.
 
 If using as a behavior, then a `rpc_call/3` function will be provided that accepts the service to call, mfa tuple, and options.
-
-Example:
-
-```elixir
-iex> AppFour.WhiteRabbit.rpc_call(:appone, {AppOne.Utils, :get_versions, []})
-{:ok,
- [
-   %{"name" => "appone", "version" => "3.5.0"},
-   %{"name" => "custom_lib_1", "version" => "1.3.0"},
-   %{"name" => "processing_lib", "version" => "2.6.0"}
- ]}
-```
 
 # To Generate ExDocs
 
@@ -311,6 +292,6 @@ $ mix docs
 
 # Copyright and License
 
-Copyright (c) 2021, Phillip Langland
+Copyright (c) 2021-2025, Phillip Langland
 
 WhiteRabbit source code is licensed under the [MIT License](./LICENSE).

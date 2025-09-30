@@ -1,5 +1,6 @@
 defmodule WhiteRabbit do
-  @doc false
+  @moduledoc File.read!("README.md")
+
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts, module: __CALLER__.module] do
       @behaviour WhiteRabbit

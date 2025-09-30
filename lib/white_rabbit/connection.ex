@@ -98,9 +98,12 @@ defmodule WhiteRabbit.Connection do
       when is_nil(conn) do
     # Retry connecting to amqp connection.
     # If succesful, send new connection state to caller.
-    case start_amqp_connection(config) do
-      {:ok, new_state} -> {:reply, new_state, new_state}
-      _ -> {:reply, state, state}
+    with {:ok, {%AMQP.Connection{}, _config} = new_state} <-
+           start_amqp_connection(config) do
+      {:reply, new_state, new_state}
+    else
+      _ ->
+        {:reply, state, state}
     end
   end
 
@@ -132,7 +135,7 @@ defmodule WhiteRabbit.Connection do
         {:DOWN, _, :process, _pid, reason},
         state
       ) do
-    Logger.warn("WhiteRabbit.Connection received :DOWN message. Reason: #{inspect(reason)}")
+    Logger.warning("WhiteRabbit.Connection received :DOWN message. Reason: #{inspect(reason)}")
     # Trigger restart of connection GenServer from the Supervisor if AMQP connection is closed
     {:stop, :connection_down, state}
   end
